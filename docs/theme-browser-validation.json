@@ -1,0 +1,26 @@
+{
+  "assertions": 421,
+  "screens": 21,
+  "themes": [
+    "dark",
+    "light"
+  ],
+  "viewports": [
+    1460,
+    390,
+    320
+  ],
+  "palette": {
+    "canvas": "#040451",
+    "cards": "#0F0F59",
+    "sidebar": "#170059"
+  },
+  "keyboardToggle": true,
+  "savedPreference": true,
+  "unsavedEditsRetained": true,
+  "visitorWelcome": true,
+  "standaloneHTML": true,
+  "errors": [],
+  "failedResources": [],
+  "externalRequests": []
+}
