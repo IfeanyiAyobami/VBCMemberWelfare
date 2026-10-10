@@ -2,6 +2,7 @@ export const careScreens = [
   "overview",
   "members",
   "guests",
+  "followups",
   "celebrations",
   "programmes",
   "campaigns",

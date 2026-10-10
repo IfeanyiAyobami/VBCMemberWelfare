@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import FollowupDesk from "@/components/FollowupDesk";
 import CareApp from "@/components/CareApp";
 import MemberDesk from "@/components/MemberDesk";
 import StaffAccess from "@/components/StaffAccess";
@@ -26,6 +27,8 @@ export default async function CarePage({
   if (session.status === "forbidden") redirect("/access?reason=staff");
   if (session.status === "unauthenticated")
     redirect("/access?next=" + encodeURIComponent("/" + (path || "overview")));
+  if (session.staff.role === "followup_worker" && path !== "followups") redirect("/followups");
+  if (path === "followups") return <FollowupDesk staff={session.staff} />;
   if (path === "guests") return <MemberDesk staff={session.staff} guestMode />;
   if (screen[0] === "guest" && isMemberId(screen[1]))
     return <MemberDesk staff={session.staff} guestMode guestId={screen[1]} />;

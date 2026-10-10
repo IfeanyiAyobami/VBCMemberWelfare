@@ -1,0 +1,8 @@
+{
+  "assertions": 16,
+  "mobileStepFocus": true,
+  "welcomeVisible": true,
+  "standaloneJourney": true,
+  "developmentStrictMode": true,
+  "errors": []
+}

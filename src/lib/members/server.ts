@@ -40,6 +40,8 @@ export async function memberAccess(request: NextRequest, write = false) {
         ),
       };
     }
+    if (session.staff.role === "followup_worker")
+      return { ok: false as const, response: authJSON({ message: "Follow-up workers can only access assigned follow-ups." }, 403) };
     if (write && session.staff.role === "viewer")
       return {
         ok: false as const,

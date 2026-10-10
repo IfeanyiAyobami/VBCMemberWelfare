@@ -1,4 +1,4 @@
-export type StaffRole = "administrator" | "editor" | "viewer";
+export type StaffRole = "administrator" | "editor" | "viewer" | "followup_worker";
 export type StaffIdentity = {
   user_id: string;
   display_name: string;

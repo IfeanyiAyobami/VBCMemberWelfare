@@ -63,13 +63,30 @@ export function mountCareUI(root, options = {}) {
       currency: "NGN",
       maximumFractionDigits: 0,
     }).format(n);
+  // Use the actual current calendar date in Lagos, not the original October demo snapshot.
+  const lagosNow = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
+  const lagosToday = () => {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit"
+    }).formatToParts(new Date());
+    const part = (type) => parts.find((item) => item.type === type)?.value || "";
+    return { iso: `${part("year")}-${part("month")}-${part("day")}`, md: `${part("month")}-${part("day")}` };
+  };
+  const lagosDisplay = () => new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Africa/Lagos", weekday: "long", day: "numeric", month: "long", year: "numeric"
+  }).format(new Date());
+  const lagosStamp = () => ({
+    day: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", day: "2-digit" }).format(new Date()),
+    month: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", month: "long" }).format(new Date()).toUpperCase(),
+    weekday: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", weekday: "long" }).format(new Date()).toUpperCase()
+  });
   const state = createDemoState(defaultEmailDesign);
   const main = $("#main"),
     modal = $("#modal");
   const nav = [
     ["overview", "Overview"],
     ["members", "Members"],
-    ...(options.memberDirectorySaved ? [["guests", "Guest submissions"]] : []),
+    ...(options.memberDirectorySaved ? [["guests", "Guest submissions"], ["followups", "Follow-ups"]] : []),
     ["celebrations", "Celebrations"],
     ["programmes", "Programmes"],
     ["campaigns", "Campaigns"],
@@ -163,7 +180,7 @@ export function mountCareUI(root, options = {}) {
     $("#navigation").innerHTML = nav
       .map(
         ([key, name]) =>
-          `<a href="/${key}" data-care-route="" class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}${key === "delivery" && state.logs.some((l) => l.status === "Failed") ? '<span class="nav-count">1</span>' : ""}</a>`,
+          `<a href="/${key}" ${key === "followups" ? "" : "data-care-route=\"\""} class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}${key === "delivery" && state.logs.some((l) => l.status === "Failed") ? '<span class="nav-count">1</span>' : ""}</a>`,
       )
       .join("");
     $("#breadcrumb").textContent =
@@ -208,8 +225,8 @@ export function mountCareUI(root, options = {}) {
       (nav.find((n) => n[0] === base)?.[1] || "Member care") + " · Vine Branch";
   }
   function overview() {
-    const b = state.members.filter((m) => m.birthday === "10-08"),
-      a = state.members.filter((m) => m.anniversary === "10-08");
+    const b = state.members.filter((m) => m.birthday === lagosToday().md),
+      a = state.members.filter((m) => m.anniversary === lagosToday().md);
     const due = [
       ...b.map((m) => ({ m, type: "Birthday", time: "08:00" })),
       ...a.map((m) => ({ m, type: "Anniversary", time: "08:30" })),
@@ -218,10 +235,10 @@ export function mountCareUI(root, options = {}) {
     return (
       title(
         "Every person matters.",
-        "Thursday, 8 October 2026 · Your care queue for today",
+        `${lagosDisplay()} · Your care queue for today`,
         link(`${icon("plus")} New campaign`, "compose", "primary"),
       ) +
-      `<div class="greeting-panel"><div><h2>A little care goes a long way.</h2><p>${b.length} birthdays and ${a.length} wedding anniversary today. Your daily greetings are set for the morning.</p></div><div class="date-stamp"><strong>08</strong><span>OCTOBER<br>THURSDAY</span></div></div><div class="stats"><div class="stat"><span class="stat-title">People in your care</span><strong class="stat-number">${state.members.length}</strong><small>${state.members.filter((m) => m.status === "New member").length} new members · ${state.members.filter((m) => m.status === "Visitor").length} visitors</small></div><div class="stat"><span class="stat-title">Celebrations today</span><strong class="stat-number">${due.length.toString().padStart(2, "0")}</strong><small>Birthday & anniversary greetings</small></div><div class="stat"><span class="stat-title">Scheduled invitations</span><strong class="stat-number">${state.campaigns
+      `<div class="greeting-panel"><div><h2>A little care goes a long way.</h2><p>${b.length} birthdays and ${a.length} wedding anniversaries today. Greetings are previews; messaging is currently paused.</p></div><div class="date-stamp"><strong>${lagosStamp().day}</strong><span>${lagosStamp().month}<br>${lagosStamp().weekday}</span></div></div><div class="stats"><div class="stat"><span class="stat-title">People in your care</span><strong class="stat-number">${state.members.length}</strong><small>${state.members.filter((m) => m.status === "New member").length} new members · ${state.members.filter((m) => m.status === "Visitor").length} visitors</small></div><div class="stat"><span class="stat-title">Celebrations today</span><strong class="stat-number">${due.length.toString().padStart(2, "0")}</strong><small>Birthday & anniversary greetings</small></div><div class="stat"><span class="stat-title">Scheduled invitations</span><strong class="stat-number">${state.campaigns
         .filter(
           (c) =>
             c.status.includes("Scheduled") || c.status === "Demo scheduled",
@@ -363,7 +380,14 @@ export function mountCareUI(root, options = {}) {
         "Programme details and invitations, kept together.",
         btn(`${icon("plus")} Create programme`, "add-event", "primary"),
       ) +
-      `<div class="grid three">${state.events.map((e) => `<article class="card event-card"><div class="event-art"><strong>${esc(e.title)}</strong><span>${esc(e.date.slice(8))}</span></div><div class="card-pad">${badge("Upcoming")}<div class="event-meta mt">${icon("programmes")}${dateLabel(e.date)} · ${e.time}</div><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><p>${esc(e.description)}</p><div class="actions mt">${btn("Create invite", "event-campaign", "small navy", 'data-id="' + e.id + '"')}${btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"')}</div></div></article>`).join("")}</div><div class="notice mt">These programmes are fictional examples for reviewing the invitation workflow.</div>`
+      `<div class="grid three programme-grid">${state.events.map((e, index) => {
+        const image = e.image || ["/programme-images/family-friends.jpg", "/programme-images/worship.jpg", "/programme-images/welcome.jpg"][index % 3];
+        const date = new Date(e.date + "T12:00:00Z");
+        const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(date).toUpperCase();
+        const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(date);
+        const isPast = e.date < lagosToday().iso;
+        return `<article class="card event-card event-card-visual" style="--programme-image:url('${esc(image)}')"><div class="programme-cover"><div class="programme-cover-top"><span class="programme-status ${isPast ? "past" : ""}"><span class="programme-dot"></span>${isPast ? "Past programme" : "Upcoming"}</span><span class="programme-date"><strong>${esc(e.date.slice(8))}</strong><small>${month} ${esc(e.date.slice(0, 4))}<br>${weekday}</small></span></div><h2 class="programme-cover-title">${esc(e.title)}</h2></div><div class="card-pad programme-details"><p>${esc(e.description)}</p><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><div class="event-meta">${icon("clock")}${esc(e.time)} · ${dateLabel(e.date)}</div><div class="actions mt">${btn("Create invite", "event-campaign", "small primary", 'data-id="' + e.id + '"')}${btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"')}</div></div></article>`;
+      }).join("")}</div><div class="notice mt">These programmes are fictional examples for reviewing the invitation workflow. Programme artwork is illustrative.</div>`
     );
   }
   function eventDialog(id) {

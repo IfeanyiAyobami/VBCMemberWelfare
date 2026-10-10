@@ -1,0 +1,14 @@
+{
+  "assertions": 106,
+  "deepLinkScreens": 21,
+  "viewports": [
+    1460,
+    390
+  ],
+  "errors": [],
+  "badResponses": [],
+  "externalRequests": [],
+  "guestJourney": true,
+  "nativeHistory": true,
+  "standaloneHTML": true
+}

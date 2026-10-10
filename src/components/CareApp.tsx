@@ -20,6 +20,7 @@ export default function CareApp({ staff }: { staff: StaffIdentity }) {
       administrator: "Administrator",
       editor: "Editor",
       viewer: "Viewer",
+      followup_worker: "Follow-up Worker",
     };
 
     function showIdentity(identity: StaffIdentity) {
@@ -193,10 +194,12 @@ export default function CareApp({ staff }: { staff: StaffIdentity }) {
   }, [staff]);
 
   return (
+    <>
     <div
       ref={root}
       id="care-app"
       dangerouslySetInnerHTML={{ __html: shellMarkup }}
     />
+    </>
   );
 }

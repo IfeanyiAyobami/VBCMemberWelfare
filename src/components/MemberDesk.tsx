@@ -25,6 +25,7 @@ const navigation = [
   ["overview", "Overview"],
   ["members", "Members"],
   ["guests", "Guest submissions"],
+  ["followups", "Follow-ups"],
   ["celebrations", "Celebrations"],
   ["programmes", "Programmes"],
   ["campaigns", "Campaigns"],
@@ -38,6 +39,7 @@ const roleLabels = {
   administrator: "Administrator",
   editor: "Editor",
   viewer: "Viewer",
+      followup_worker: "Follow-up Worker",
 };
 const months = [
   "January",
@@ -58,6 +60,7 @@ function Icon({ name }: { name: string }) {
     overview: "M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z",
     members:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M16 3a4 4 0 0 1 0 8 M22 21v-2a4 4 0 0 0-3-3.87 M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0",
+    followups: "M20 6L9 17l-5-5 M3 3h18v18H3z",
     celebrations:
       "M3 8h18v4H3z M5 12v9h14v-9 M12 8v13 M12 8H8a3 3 0 1 1 3-3z M12 8h4a3 3 0 1 0-3-3z",
     programmes: "M3 5h18v16H3z M7 3v4 M17 3v4 M3 11h18",
@@ -385,6 +388,7 @@ export default function MemberDesk({
             ))}
           </nav>
           <div className="side-bottom">
+            <a href="/followups">Follow-up assignments →</a>
             <a href="/join">
               <span className="side-mark">+</span> Visitor experience
             </a>

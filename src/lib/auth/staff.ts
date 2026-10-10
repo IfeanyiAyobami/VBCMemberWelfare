@@ -37,7 +37,7 @@ export async function getStaffSession(
     if (
       !data ||
       data.is_active !== true ||
-      !["administrator", "editor", "viewer"].includes(data.role)
+      !["administrator", "editor", "viewer", "followup_worker"].includes(data.role)
     )
       return { status: "forbidden" };
     return {

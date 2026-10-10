@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         session.status === "unavailable" ? 503 : 403,
       );
     }
-    return authJSON({ next: safeNextPath(payload.next) });
+    return authJSON({ next: session.staff.role === "followup_worker" ? "/followups" : safeNextPath(payload.next) });
   } catch {
     return authJSON(
       { message: "We cannot reach sign-in right now. Please try again." },

@@ -1,0 +1,9 @@
+/* Add above the “stop editing” line inside wp-config.php. No second PHP opening tag. */
+/* Keep disabled until all placeholders are replaced and staging is ready. */
+define('VBC_CARE_BRIDGE_ENABLED', false);
+define('VBC_CARE_INTAKE_URL', 'https://YOUR-CARE-DASHBOARD-HOST/api/intake/wordpress');
+define('VBC_CARE_BRIDGE_SECRET', 'COPY_THE_SAME_64_CHARACTER_SECRET_USED_ON_THE_DASHBOARD_SERVER');
+define('VBC_CARE_TURNSTILE_SITE_KEY', 'YOUR_WORDPRESS_TURNSTILE_SITE_KEY');
+define('VBC_CARE_TURNSTILE_SECRET_KEY', 'YOUR_WORDPRESS_TURNSTILE_SECRET_KEY');
+/* Optional: submissions per WordPress-observed server IP in a 15-minute window. */
+/* define('VBC_CARE_RATE_LIMIT', 120); */

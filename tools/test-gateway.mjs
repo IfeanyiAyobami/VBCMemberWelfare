@@ -1,55 +1,33 @@
-import nextEnv from "@next/env";
-import { readFile, access } from "node:fs/promises";
+// Explicit operator test against the supplied HTTPS endpoint. Creates one
+// fictional pending guest; never sends email/SMS or prints credentials/answers.
+import { loadEnvConfig } from "@next/env";
+import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-
-const { loadEnvConfig } = nextEnv;
-loadEnvConfig(process.cwd(), process.argv.includes("--dev"));
-
+loadEnvConfig(process.cwd());
 const token = process.env.VBC_MEMBER_CARE_GATEWAY_TOKEN;
-
 let url;
 try {
   url = new URL(process.argv[2]);
 } catch {
   throw new Error(
-    "Supply the Member Care ingestion URL as the first argument."
+    "Run: node tools/test-gateway.mjs https://YOUR-MEMBER-CARE-HOST/api/integrations/wordpress/first-timers",
   );
 }
-
-const localHTTP =
-  url.protocol === "http:" &&
-  ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
-
 if (
-  (url.protocol !== "https:" && !localHTTP) ||
+  url.protocol !== "https:" ||
   url.username ||
   url.password ||
   url.search ||
   url.hash ||
   url.pathname !== "/api/integrations/wordpress/first-timers"
-) {
+)
   throw new Error(
-    "Use the exact HTTPS or localhost ingestion URL without a trailing slash."
+    "Supply the exact HTTPS Member Care ingestion URL, without credentials, query string or trailing slash.",
   );
-}
-
-if (!token || !/^[\x21-\x7e]{32,256}$/.test(token)) {
+if (!token || !/^[\x21-\x7e]{32,256}$/.test(token))
   throw new Error(
-    "Set VBC_MEMBER_CARE_GATEWAY_TOKEN in .env.local first."
+    "Set the server-only VBC_MEMBER_CARE_GATEWAY_TOKEN in .env.local first.",
   );
-}
-
-try {
-  await access(
-    "src/app/api/integrations/wordpress/first-timers/route.ts"
-  );
-  await access("tests/fixtures/wordpress-gateway.json");
-} catch {
-  throw new Error(
-    "Gateway files are missing. Run from the v0.6.1 project folder containing the integration files."
-  );
-}
-
 const stamp = new Intl.DateTimeFormat("sv-SE", {
   timeZone: "Africa/Lagos",
   year: "numeric",
@@ -60,101 +38,83 @@ const stamp = new Intl.DateTimeFormat("sv-SE", {
   second: "2-digit",
   hourCycle: "h23",
 }).format(new Date());
-
-const payload = {
+const p = {
   ...JSON.parse(
-    await readFile("tests/fixtures/wordpress-gateway.json", "utf8")
+    await readFile(
+      new URL("../tests/fixtures/wordpress-gateway.json", import.meta.url),
+      "utf8",
+    ),
   ),
   submission_id: randomUUID(),
   date_submitted: stamp,
   visit_date: stamp.slice(0, 10),
 };
-
 async function send(body, auth = token) {
-  const response = await fetch(url, {
+  const r = await fetch(url, {
     method: "POST",
     redirect: "manual",
     signal: AbortSignal.timeout(18000),
     headers: {
       "Content-Type": "application/json",
       Authorization: "Bearer " + auth,
-      "Idempotency-Key": payload.submission_id,
+      "Idempotency-Key": p.submission_id,
     },
     body: JSON.stringify(body),
   });
-
-  const data = await response.json().catch(() => null);
-  return { status: response.status, data };
+  const d = await r.json().catch(() => null);
+  return { status: r.status, data: d };
 }
-
-function requireResult(ok, label, result) {
-  if (!ok) {
+function requireResult(ok, label, r) {
+  if (!ok)
     throw new Error(
-      `${label} failed (HTTP ${result.status}). Check the receiver configuration and server terminal.`
+      label +
+        " failed (HTTP " +
+        r.status +
+        "). Check the receiver configuration and hosting logs; no payload or secret was printed.",
     );
-  }
   console.log("PASS: " + label);
 }
-
 console.log(
-  "This test creates one fictional pending guest. Reject it after checking."
+  "This test creates one fictional pending guest. Reject it in Guest submissions after checking.",
 );
-console.log("Submission ID: " + payload.submission_id);
-
-let result = await send(payload, "x".repeat(64));
+console.log("Submission ID: " + p.submission_id);
+let r = await send(p, "x".repeat(64));
+requireResult(r.status === 401, "Incorrect bearer denied", r);
+r = await send(p);
 requireResult(
-  result.status === 401,
-  "Incorrect bearer denied",
-  result
-);
-
-result = await send(payload);
-requireResult(
-  result.status === 201 &&
-    result.data?.success === true &&
-    result.data?.duplicate === false,
+  r.status === 201 && r.data?.success === true && r.data?.duplicate === false,
   "New guest acknowledged",
-  result
+  r,
 );
-
-const id = result.data.id;
+const id = r.data.id;
 console.log("Guest record ID: " + id);
-
-result = await send(payload);
+r = await send(p);
 requireResult(
-  result.status === 200 &&
-    result.data?.success === true &&
-    result.data?.duplicate === true &&
-    result.data?.id === id,
+  r.status === 200 &&
+    r.data?.success === true &&
+    r.data?.duplicate === true &&
+    r.data?.id === id,
   "Identical retry acknowledged",
-  result
+  r,
 );
-
-result = await send({
-  ...payload,
-  occupation: "Changed fictional test",
-});
+r = await send({ ...p, occupation: "Changed fictional test" });
 requireResult(
-  result.status === 409 && result.data?.success === false,
+  r.status === 409 && r.data?.success === false,
   "Changed content rejected",
-  result
+  r,
 );
-
 const simultaneous = await Promise.all(
-  Array.from({ length: 12 }, () => send(payload))
+  Array.from({ length: 12 }, () => send(p)),
 );
-
-for (const result of simultaneous) {
+for (const r of simultaneous)
   requireResult(
-    result.status === 200 &&
-      result.data?.success === true &&
-      result.data?.duplicate === true &&
-      result.data?.id === id,
+    r.status === 200 &&
+      r.data?.success === true &&
+      r.data?.duplicate === true &&
+      r.data?.id === id,
     "Concurrent retry returns original ID",
-    result
+    r,
   );
-}
-
 console.log(
-  "Complete. Confirm one matching guest card, then reject the fictional guest."
+  "Complete. Confirm exactly one row for this submission ID in Supabase, then reject the fictional guest.",
 );
