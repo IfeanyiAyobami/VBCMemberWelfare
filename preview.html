@@ -2884,7 +2884,7 @@ dialog::backdrop {
     <div class="workspace"><header class="topbar"><button class="icon-button menu-button" id="menu-toggle" aria-label="Open navigation" aria-expanded="false">☰</button><span class="breadcrumb" id="breadcrumb">Church office / Overview</span><div class="top-actions"><button type="button" class="theme-toggle icon-button" id="theme-toggle" aria-label="Switch to light mode" aria-pressed="true" title="Switch to light mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg><span>Light mode</span></button><span class="time-zone">Africa / Lagos</span><a class="text-link" href="/guide" data-care-route="">Screen guide</a><span class="avatar small">MC</span></div></header><main id="main" tabindex="-1"><section class="card"><div class="card-pad"><div class="eyebrow">Vine Branch Church</div><h1>Opening the care desk...</h1><p class="hint mt">Preparing the frontend review.</p></div></section></main><footer class="app-footer"><span>Vine Branch Church · Member care</span><span>Review edition / 08 October 2026</span></footer></div>
   </div>
   <dialog id="modal" aria-labelledby="modal-title"></dialog><noscript><p class="noscript-note">Enable JavaScript to review this interactive frontend.</p></noscript>
-  <div id="toast" class="toast" role="status" aria-live="polite"></div></div><script>/** Only the display preference is stored; member records remain in memory. */
+  <div id="toast" class="toast" role="status" aria-live="polite"></div></div><script>/** Browser storage is used only for the display preference. */
 const THEME_STORAGE_KEY = "vbc-care-theme";
 
 // Runs before first paint in Next.js and in the standalone HTML export.
@@ -3263,7 +3263,7 @@ function createDemoState(defaultEmailDesign) {
  * @param {HTMLElement} root
  * @returns {() => void}
  */
-function mountCareUI(root) {
+function mountCareUI(root, options = {}) {
   const disposeTheme = mountThemeToggle(root);
   const lifecycle = new AbortController();
   const listen = (target, type, handler, options = {}) =>
@@ -3325,6 +3325,7 @@ function mountCareUI(root) {
   const nav = [
     ["overview", "Overview"],
     ["members", "Members"],
+    ...(options.memberDirectorySaved ? [["guests", "Guest submissions"]] : []),
     ["celebrations", "Celebrations"],
     ["programmes", "Programmes"],
     ["campaigns", "Campaigns"],
@@ -3387,13 +3388,21 @@ function mountCareUI(root) {
       return location.hash.slice(1) || "overview";
     return location.pathname.replace(/^\/|\/$/g, "") || "overview";
   }
-  function afterNavigation() {
+  async function afterNavigation(verified = false) {
+    if (
+      options.beforeNavigate &&
+      verified !== true &&
+      !(await options.beforeNavigate("/" + currentRoute()))
+    )
+      return;
     if (modal.open) modal.close();
     render();
     main.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
-  function go(route) {
+  async function go(route) {
+    if (options.beforeNavigate && !(await options.beforeNavigate("/" + route)))
+      return;
     if (location.protocol === "file:") {
       if (location.hash === "#" + route) afterNavigation();
       else location.hash = route;
@@ -3402,7 +3411,7 @@ function mountCareUI(root) {
     const path = "/" + route;
     if (location.pathname !== path || location.hash)
       window.history.pushState(null, "", path);
-    afterNavigation();
+    afterNavigation(true);
   }
   function render() {
     const route = currentRoute() || "overview";
@@ -3543,6 +3552,10 @@ function mountCareUI(root) {
     }`;
   }
   function memberDialog(id) {
+    if (!id && options.openMemberDirectory) {
+      options.openMemberDirectory();
+      return;
+    }
     const m = statusMember(id) || {
       first: "",
       last: "",
@@ -4681,6 +4694,9 @@ function mountCareUI(root) {
         "Start with a visitor, then follow their record into the care desk.",
         link("Start visitor journey", "join", "primary"),
       ) +
+      (options.memberDirectorySaved
+        ? '<div class="notice mb"><strong>The Members directory now saves records.</strong><br>Members and UUID profiles save details, permissions with evidence, care notes and archive/restore changes. Visitor registration, CSV import, sample profiles and messaging remain previews; visitor submissions will be connected in a following stage.</div>'
+        : "") +
       `<section class="card"><div class="guide-row"><span class="guide-number">01</span><div><a href="/join" data-care-route="">Register a fictional visitor</a><p>Use “Try fictional visitor”, move through all four steps and submit. The welcome message links to the new member record.</p></div></div><div class="guide-row"><span class="guide-number">02</span><div><a href="/members" data-care-route="">Review members and permissions</a><p>Search, filter, open a profile, edit milestone dates and inspect communication history. Try the CSV import with duplicates and invalid rows.</p></div></div><div class="guide-row"><span class="guide-number">03</span><div><a href="/automations" data-care-route="">Set up milestone greetings</a><p>Configure send time, channels, templates and the 29 February rule. Pause or resume a rule, then preview its greeting.</p></div></div><div class="guide-row"><span class="guide-number">04</span><div><a href="/compose" data-care-route="">Compose a programme invitation</a><p>Choose a programme, audience and channel; edit personalised messages; review eligible recipients, SMS segments and the schedule.</p></div></div><div class="guide-row"><span class="guide-number">05</span><div><a href="/delivery" data-care-route="">Inspect delivery and preferences</a><p>Open the failed anniversary email and simulate a retry. Review the member-facing preference and unsubscribe journey.</p></div></div><div class="guide-row"><span class="guide-number">06</span><div><a href="/budget" data-care-route="">Adjust your running costs</a><p>Compare SMS for every invitation against SMS for milestones only. Change the member count, rate, message length and FX planning assumption.</p></div></div></section><h2 class="mt mb">Screen inventory</h2><div class="review-map">${[
         [
           "access",

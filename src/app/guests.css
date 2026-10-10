@@ -1,0 +1,135 @@
+.guest-review-grid {
+  align-items: start;
+  margin-top: 24px;
+}
+.guest-details section + section {
+  margin-top: 26px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+.guest-details h3 {
+  font-size: 0.88rem;
+  margin: 0 0 14px;
+}
+.guest-details .detail-list > div {
+  padding: 9px 0;
+}
+.guest-details dd,
+.guest-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.guest-choices {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.guest-choices li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.82rem;
+}
+.guest-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  list-style: none;
+  padding: 0;
+  margin: 0 0 26px;
+  gap: 8px;
+}
+.guest-stepper li {
+  font-size: 0.7rem;
+  color: var(--muted);
+  border-bottom: 3px solid var(--line);
+  padding-bottom: 14px;
+}
+.guest-stepper li[aria-current="step"] {
+  color: var(--ink);
+  border-color: var(--red);
+}
+.guest-stepper span {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.guest-dialog .fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.guest-dialog .field {
+  min-width: 0;
+}
+.guest-dialog .field.full {
+  grid-column: 1/-1;
+}
+.guest-dialog .field textarea {
+  width: 100%;
+  resize: vertical;
+}
+.guest-dialog details summary {
+  cursor: pointer;
+}
+.guest-matches {
+  margin-top: 18px;
+}
+.guest-match {
+  display: flex;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.guest-match input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--red);
+  flex: 0 0 20px;
+}
+.guest-match span {
+  min-width: 0;
+}
+.guest-match strong,
+.guest-match small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.guest-match small {
+  font-size: 0.73rem;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 5px 0;
+}
+.guest-review-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 22px;
+}
+.guest-reload {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+}
+@media (max-width: 720px) {
+  .guest-dialog .fields-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .guest-stepper li {
+    font-size: 0.65rem;
+  }
+  .guest-choices li {
+    align-items: flex-start;
+  }
+  .guest-review-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

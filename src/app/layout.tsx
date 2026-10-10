@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { themeBootstrap } from "@/lib/theme.js";
 import "./globals.css";
 import "./themes.css";
+import "./auth.css";
+import "./members.css";
+import "./guests.css";
 
 export const metadata: Metadata = {
   title: "Vine Branch · Member Care",

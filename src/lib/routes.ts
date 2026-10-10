@@ -1,6 +1,7 @@
 export const careScreens = [
   "overview",
   "members",
+  "guests",
   "celebrations",
   "programmes",
   "campaigns",
@@ -27,6 +28,9 @@ export function isCareRoute(path: string): boolean {
     path === "" ||
     (careScreens as readonly string[]).includes(path) ||
     /^(profile|preferences)\/m[a-zA-Z0-9_-]+$/.test(path) ||
+    /^(?:profile|guest)\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      path,
+    ) ||
     /^compose\/c[a-zA-Z0-9_-]+$/.test(path)
   );
 }

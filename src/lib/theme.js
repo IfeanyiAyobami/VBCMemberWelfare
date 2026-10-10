@@ -1,4 +1,4 @@
-/** Only the display preference is stored; member records remain in memory. */
+/** Browser storage is used only for the display preference. */
 export const THEME_STORAGE_KEY = "vbc-care-theme";
 
 // Runs before first paint in Next.js and in the standalone HTML export.

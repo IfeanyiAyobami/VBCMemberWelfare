@@ -7,7 +7,7 @@ import { mountThemeToggle } from "./theme.js";
  * @param {HTMLElement} root
  * @returns {() => void}
  */
-export function mountCareUI(root) {
+export function mountCareUI(root, options = {}) {
   const disposeTheme = mountThemeToggle(root);
   const lifecycle = new AbortController();
   const listen = (target, type, handler, options = {}) =>
@@ -69,6 +69,7 @@ export function mountCareUI(root) {
   const nav = [
     ["overview", "Overview"],
     ["members", "Members"],
+    ...(options.memberDirectorySaved ? [["guests", "Guest submissions"]] : []),
     ["celebrations", "Celebrations"],
     ["programmes", "Programmes"],
     ["campaigns", "Campaigns"],
@@ -131,13 +132,21 @@ export function mountCareUI(root) {
       return location.hash.slice(1) || "overview";
     return location.pathname.replace(/^\/|\/$/g, "") || "overview";
   }
-  function afterNavigation() {
+  async function afterNavigation(verified = false) {
+    if (
+      options.beforeNavigate &&
+      verified !== true &&
+      !(await options.beforeNavigate("/" + currentRoute()))
+    )
+      return;
     if (modal.open) modal.close();
     render();
     main.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
-  function go(route) {
+  async function go(route) {
+    if (options.beforeNavigate && !(await options.beforeNavigate("/" + route)))
+      return;
     if (location.protocol === "file:") {
       if (location.hash === "#" + route) afterNavigation();
       else location.hash = route;
@@ -146,7 +155,7 @@ export function mountCareUI(root) {
     const path = "/" + route;
     if (location.pathname !== path || location.hash)
       window.history.pushState(null, "", path);
-    afterNavigation();
+    afterNavigation(true);
   }
   function render() {
     const route = currentRoute() || "overview";
@@ -287,6 +296,10 @@ export function mountCareUI(root) {
     }`;
   }
   function memberDialog(id) {
+    if (!id && options.openMemberDirectory) {
+      options.openMemberDirectory();
+      return;
+    }
     const m = statusMember(id) || {
       first: "",
       last: "",
@@ -1425,6 +1438,9 @@ export function mountCareUI(root) {
         "Start with a visitor, then follow their record into the care desk.",
         link("Start visitor journey", "join", "primary"),
       ) +
+      (options.memberDirectorySaved
+        ? '<div class="notice mb"><strong>The Members directory now saves records.</strong><br>Members and UUID profiles save details, permissions with evidence, care notes and archive/restore changes. Visitor registration, CSV import, sample profiles and messaging remain previews; visitor submissions will be connected in a following stage.</div>'
+        : "") +
       `<section class="card"><div class="guide-row"><span class="guide-number">01</span><div><a href="/join" data-care-route="">Register a fictional visitor</a><p>Use “Try fictional visitor”, move through all four steps and submit. The welcome message links to the new member record.</p></div></div><div class="guide-row"><span class="guide-number">02</span><div><a href="/members" data-care-route="">Review members and permissions</a><p>Search, filter, open a profile, edit milestone dates and inspect communication history. Try the CSV import with duplicates and invalid rows.</p></div></div><div class="guide-row"><span class="guide-number">03</span><div><a href="/automations" data-care-route="">Set up milestone greetings</a><p>Configure send time, channels, templates and the 29 February rule. Pause or resume a rule, then preview its greeting.</p></div></div><div class="guide-row"><span class="guide-number">04</span><div><a href="/compose" data-care-route="">Compose a programme invitation</a><p>Choose a programme, audience and channel; edit personalised messages; review eligible recipients, SMS segments and the schedule.</p></div></div><div class="guide-row"><span class="guide-number">05</span><div><a href="/delivery" data-care-route="">Inspect delivery and preferences</a><p>Open the failed anniversary email and simulate a retry. Review the member-facing preference and unsubscribe journey.</p></div></div><div class="guide-row"><span class="guide-number">06</span><div><a href="/budget" data-care-route="">Adjust your running costs</a><p>Compare SMS for every invitation against SMS for milestones only. Change the member count, rate, message length and FX planning assumption.</p></div></div></section><h2 class="mt mb">Screen inventory</h2><div class="review-map">${[
         [
           "access",
