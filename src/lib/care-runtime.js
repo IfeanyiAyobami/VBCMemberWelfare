@@ -81,6 +81,37 @@ export function mountCareUI(root, options = {}) {
     weekday: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", weekday: "long" }).format(new Date()).toUpperCase()
   });
   const state = createDemoState(defaultEmailDesign);
+  // Saved celebrations are always fetched from the authenticated directory.
+  // Never fall back to fictional records if loading fails.
+  const liveCelebrations = { status: "loading", members: [], message: "" };
+  const liveMemberRow = (m, extra = "") =>
+    `<a class="row row-link" href="/profile/${encodeURIComponent(m.id)}"><span class="avatar">${esc((m.first || "")[0])}${esc((m.last || "")[0])}</span><span class="row-main"><strong>${esc(m.first + " " + m.last)}</strong><small>${esc(m.status)}</small></span><span class="row-right">${extra}</span></a>`;
+  const celebrationNotice = () => `<div class="card-pad"><p class="hint" role="status">${esc(liveCelebrations.status === "loading" ? "Loading saved member celebrations…" : liveCelebrations.message || "Unable to load saved celebrations.")}</p></div>`;
+  const liveMembers = () => liveCelebrations.members;
+  async function refreshCelebrations() {
+    try {
+      const response = await fetch("/api/celebrations", { credentials: "same-origin", cache: "no-store", signal: lifecycle.signal });
+      if (!response.ok) throw new Error(response.status === 403 ? "Your role cannot view the member celebration directory." : "Saved celebrations are temporarily unavailable. Please refresh.");
+      const result = await response.json();
+      if (!Array.isArray(result.members)) throw new Error("Saved celebrations could not be read.");
+      const datePart = (month, day) => Number.isInteger(month) && Number.isInteger(day) && month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` : "";
+      liveCelebrations.members = result.members.map((m) => {
+        const preferences = Array.isArray(m.care_preferences) ? m.care_preferences[0] : m.care_preferences;
+        return { id: m.id, first: m.other_names || "", last: m.surname || "", status: ({visitor:"Visitor",new_member:"New member",member:"Member"})[m.status] || "Member", birthday: datePart(m.birthday_month, m.birthday_day), anniversary: datePart(m.anniversary_month, m.anniversary_day), celebrationOpt: preferences?.celebrations_opt_in === true, emailOpt: preferences?.email_opt_in === true, smsOpt: preferences?.sms_opt_in === true };
+      });
+      liveCelebrations.status = "ready";
+      liveCelebrations.message = "";
+    } catch (error) {
+      if (lifecycle.signal.aborted) return;
+      liveCelebrations.status = "error";
+      liveCelebrations.message = error instanceof Error ? error.message : "Unable to load saved celebrations.";
+    }
+    if (!lifecycle.signal.aborted && ["overview", "celebrations"].includes(currentRoute().split("/")[0])) render();
+  }
+  const todayParts = lagosToday().iso.split("-").map(Number);
+  state.calYear = todayParts[0];
+  state.calMonth = todayParts[1] - 1;
+  state.calDay = todayParts[2];
   const main = $("#main"),
     modal = $("#modal");
   const nav = [
@@ -158,6 +189,7 @@ export function mountCareUI(root, options = {}) {
       return;
     if (modal.open) modal.close();
     render();
+    if (["overview", "celebrations"].includes(currentRoute().split("/")[0])) void refreshCelebrations();
     main.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
@@ -225,8 +257,9 @@ export function mountCareUI(root, options = {}) {
       (nav.find((n) => n[0] === base)?.[1] || "Member care") + " · Vine Branch";
   }
   function overview() {
-    const b = state.members.filter((m) => m.birthday === lagosToday().md),
-      a = state.members.filter((m) => m.anniversary === lagosToday().md);
+    if (liveCelebrations.status !== "ready") return title("Every person matters.", `${lagosDisplay()} · Your care queue for today`) + `<section class="card">${celebrationNotice()}</section>`;
+    const b = liveMembers().filter((m) => m.birthday === lagosToday().md),
+      a = liveMembers().filter((m) => m.anniversary === lagosToday().md);
     const due = [
       ...b.map((m) => ({ m, type: "Birthday", time: "08:00" })),
       ...a.map((m) => ({ m, type: "Anniversary", time: "08:30" })),
@@ -238,7 +271,7 @@ export function mountCareUI(root, options = {}) {
         `${lagosDisplay()} · Your care queue for today`,
         link(`${icon("plus")} New campaign`, "compose", "primary"),
       ) +
-      `<div class="greeting-panel"><div><h2>A little care goes a long way.</h2><p>${b.length} birthdays and ${a.length} wedding anniversaries today. Greetings are previews; messaging is currently paused.</p></div><div class="date-stamp"><strong>${lagosStamp().day}</strong><span>${lagosStamp().month}<br>${lagosStamp().weekday}</span></div></div><div class="stats"><div class="stat"><span class="stat-title">People in your care</span><strong class="stat-number">${state.members.length}</strong><small>${state.members.filter((m) => m.status === "New member").length} new members · ${state.members.filter((m) => m.status === "Visitor").length} visitors</small></div><div class="stat"><span class="stat-title">Celebrations today</span><strong class="stat-number">${due.length.toString().padStart(2, "0")}</strong><small>Birthday & anniversary greetings</small></div><div class="stat"><span class="stat-title">Scheduled invitations</span><strong class="stat-number">${state.campaigns
+      `<div class="greeting-panel"><div><h2>A little care goes a long way.</h2><p>${b.length} birthdays and ${a.length} wedding anniversaries today. Greetings are previews; messaging is currently paused.</p></div><div class="date-stamp"><strong>${lagosStamp().day}</strong><span>${lagosStamp().month}<br>${lagosStamp().weekday}</span></div></div><div class="stats"><div class="stat"><span class="stat-title">People in your care</span><strong class="stat-number">${liveMembers().length}</strong><small>${liveMembers().filter((m) => m.status === "New member").length} new members · ${liveMembers().filter((m) => m.status === "Visitor").length} visitors</small></div><div class="stat"><span class="stat-title">Celebrations today</span><strong class="stat-number">${due.length.toString().padStart(2, "0")}</strong><small>Birthday & anniversary greetings</small></div><div class="stat"><span class="stat-title">Scheduled invitations</span><strong class="stat-number">${state.campaigns
         .filter(
           (c) =>
             c.status.includes("Scheduled") || c.status === "Demo scheduled",
@@ -247,10 +280,10 @@ export function mountCareUI(root, options = {}) {
         .padStart(
           2,
           "0",
-        )}</strong><small>Next: 15 October, 09:00</small></div><div class="stat"><span class="stat-title">Delivery status</span><strong class="stat-number">${delivered}/${state.logs.length}</strong><small>Sample messages marked delivered</small></div></div><div class="grid two"><section class="card"><div class="card-head"><h2>Celebrating today</h2><a class="text-link" href="/celebrations" data-care-route="">View calendar</a></div>${due.map(({ m, type, time }) => memberRow(m, `<span class="badge ${type === "Birthday" ? "red" : "blue"}">${type}</span><small>${time} · Email${m.smsOpt ? " & SMS" : ""}</small>`)).join("")}<div class="card-foot hint">Greetings respect each member’s channel and celebration preferences.</div></section><section class="card"><div class="card-head"><h2>Next programme</h2>${badge("Upcoming")}</div><div class="card-pad"><div class="eyebrow">Sunday, 18 October · 09:00</div><h2>Family & Friends Sunday</h2><p class="muted mt" style="font-size:.875rem">A Sunday to worship together and bring someone you love.</p><div class="event-meta">${icon("pin")}Vine Branch Church, Ibadan</div><div class="button-row">${link("Review invitation", "compose/c1", "navy")}${link("Programme details", "programmes")}</div></div></section><section class="card"><div class="card-head"><h2>Recently welcomed</h2><a href="/members" data-care-route="" class="text-link">All members</a></div>${state.members
+        )}</strong><small>Next: 15 October, 09:00</small></div><div class="stat"><span class="stat-title">Delivery status</span><strong class="stat-number">${delivered}/${state.logs.length}</strong><small>Sample messages marked delivered</small></div></div><div class="grid two"><section class="card"><div class="card-head"><h2>Celebrating today</h2><a class="text-link" href="/celebrations" data-care-route="">View calendar</a></div>${due.map(({ m, type }) => liveMemberRow(m, `<span class="badge ${type === "Birthday" ? "red" : "blue"}">${type}</span><small>${m.celebrationOpt && (m.emailOpt || m.smsOpt) ? "Greeting permitted (sending paused)" : "No greeting permission"}</small>`)).join("") || '<div class="card-pad hint">No saved birthdays or anniversaries today.</div>'}<div class="card-foot hint">Greetings respect each member’s channel and celebration preferences.</div></section><section class="card"><div class="card-head"><h2>Next programme</h2>${badge("Upcoming")}</div><div class="card-pad"><div class="eyebrow">Sunday, 18 October · 09:00</div><h2>Family & Friends Sunday</h2><p class="muted mt" style="font-size:.875rem">A Sunday to worship together and bring someone you love.</p><div class="event-meta">${icon("pin")}Vine Branch Church, Ibadan</div><div class="button-row">${link("Review invitation", "compose/c1", "navy")}${link("Programme details", "programmes")}</div></div></section><section class="card"><div class="card-head"><h2>Recently welcomed</h2><a href="/members" data-care-route="" class="text-link">All members</a></div>${liveMembers()
         .filter((m) => m.status !== "Member")
         .slice(0, 3)
-        .map((m) => memberRow(m, badge(m.status)))
+        .map((m) => liveMemberRow(m, badge(m.status)))
         .join(
           "",
         )}</section><section class="card"><div class="card-head"><h2>Needs your attention</h2>${badge(state.logs.filter((l) => l.status === "Failed").length + " issues")}</div><div class="card-pad"><div class="notice amber">${state.logs.some((l) => l.status === "Failed") ? "An anniversary email needs a retry. Check the delivery record before trying again." : "No failed messages need your attention. Review the delivery queue for updates."}</div>${link("Review delivery issue", "delivery", "w100")}<div class="settings-row"><div><strong>Provider setup</strong><small>Connect email and SMS for production.</small></div><a href="/settings/providers" data-care-route="" class="text-link">Review</a></div></div></section></div>`
@@ -340,17 +373,18 @@ export function mountCareUI(root, options = {}) {
     );
   }
   function celebrations() {
+    if (liveCelebrations.status !== "ready") return title("Remember their milestones", "Saved member birthdays and anniversaries") + `<section class="card">${celebrationNotice()}</section>`;
     const month = state.calMonth;
-    const events = state.members.filter(
+    const events = liveMembers().filter(
       (m) =>
         m[state.calType] && Number(m[state.calType].slice(0, 2)) === month + 1,
     );
     const dayEvents = events.filter(
       (m) => Number(m[state.calType].slice(3)) === state.calDay,
     );
-    const first = new Date(2026, month, 1).getDay();
-    const days = new Date(2026, month + 1, 0).getDate();
-    const monthName = new Date(2026, month, 1).toLocaleDateString("en-GB", {
+    const first = new Date(state.calYear, month, 1).getDay();
+    const days = new Date(state.calYear, month + 1, 0).getDate();
+    const monthName = new Date(state.calYear, month, 1).toLocaleDateString("en-GB", {
       month: "long",
     });
     return (
@@ -359,18 +393,18 @@ export function mountCareUI(root, options = {}) {
         "A thoughtful greeting, right on time.",
         link("Manage automations", "automations"),
       ) +
-      `<div class="tabs"><button class="tab ${state.calType === "birthday" ? "active" : ""}" data-action="cal-type" data-value="birthday">Birthdays</button><button class="tab ${state.calType === "anniversary" ? "active" : ""}" data-action="cal-type" data-value="anniversary">Wedding anniversaries</button></div><div class="grid two"><section class="card"><div class="card-head"><h2>${monthName} 2026</h2><div class="actions">${btn("Previous", "cal-month", "small", 'data-delta="-1"')}${btn("Next", "cal-month", "small", 'data-delta="1"')}</div></div><div class="calendar">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => `<div class="cal-label">${d}</div>`).join("")}${Array.from({ length: first }, () => '<div class="cal-day blank"></div>').join("")}${Array.from(
+      `<div class="tabs"><button class="tab ${state.calType === "birthday" ? "active" : ""}" data-action="cal-type" data-value="birthday">Birthdays</button><button class="tab ${state.calType === "anniversary" ? "active" : ""}" data-action="cal-type" data-value="anniversary">Wedding anniversaries</button></div><div class="grid two"><section class="card"><div class="card-head"><h2>${monthName} ${state.calYear}</h2><div class="actions">${btn("Previous", "cal-month", "small", 'data-delta="-1"')}${btn("Next", "cal-month", "small", 'data-delta="1"')}</div></div><div class="calendar">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => `<div class="cal-label">${d}</div>`).join("")}${Array.from({ length: first }, () => '<div class="cal-day blank"></div>').join("")}${Array.from(
         { length: days },
         (_, i) => {
           const num = i + 1,
             n = events.filter(
               (m) => Number(m[state.calType].slice(3)) === num,
             ).length;
-          return `<button class="cal-day ${month === 9 && num === 8 ? "today" : ""} ${num === state.calDay ? "selected" : ""}" data-action="cal-day" data-day="${num}" aria-label="${num} ${monthName}, ${n} ${state.calType === "birthday" ? "birthdays" : "anniversaries"}">${num}${n ? `<span class="cal-indicator ${state.calType}">${n}<span class="cal-word">&nbsp;${state.calType === "birthday" ? "birthday" + (n > 1 ? "s" : "") : "anniversary"}</span></span>` : ""}</button>`;
+          return `<button class="cal-day ${state.calYear === todayParts[0] && month === todayParts[1] - 1 && num === todayParts[2] ? "today" : ""} ${num === state.calDay ? "selected" : ""}" data-action="cal-day" data-day="${num}" aria-label="${num} ${monthName}, ${n} ${state.calType === "birthday" ? "birthdays" : "anniversaries"}">${num}${n ? `<span class="cal-indicator ${state.calType}">${n}<span class="cal-word">&nbsp;${state.calType === "birthday" ? "birthday" + (n > 1 ? "s" : "") : "anniversary"}</span></span>` : ""}</button>`;
         },
       ).join(
         "",
-      )}</div><div class="card-foot hint">${events.length} ${state.calType === "birthday" ? "birthdays" : "anniversaries"} this month · Times shown in Lagos time</div></section><div class="grid"><section class="card"><div class="card-head"><h2>${state.calDay} ${monthName}</h2>${badge(dayEvents.length + " people")}</div>${dayEvents.map((m) => memberRow(m, badge(m.celebrationOpt ? "Eligible" : "Preferences off"))).join("") || '<div class="list-empty"><div class="empty-symbol">♡</div><h3>A quiet day</h3><p class="hint mt">No ' + (state.calType === "birthday" ? "birthdays" : "anniversaries") + " on this date.</p></div>"}</section><section class="card"><div class="card-head"><h2>Greeting preview</h2></div><div class="card-pad"><p class="hint">${state.calType === "birthday" ? "Birthday blessing" : "Anniversary blessing"} · Personalised for ${esc(dayEvents[0]?.first || "Tomi")}</p><div class="sms-bubble">${esc(personalise(state.templates[state.calType === "birthday" ? 0 : 1].sms, dayEvents[0] || state.members[0]))}</div><div class="mt">${btn("Edit template", "celebration-template", "w100", 'data-id="' + (state.calType === "birthday" ? "t1" : "t2") + '"')}</div></div></section></div></div>`
+      )}</div><div class="card-foot hint">${events.length} ${state.calType === "birthday" ? "birthdays" : "anniversaries"} this month · Times shown in Lagos time</div></section><div class="grid"><section class="card"><div class="card-head"><h2>${state.calDay} ${monthName}</h2>${badge(dayEvents.length + " people")}</div>${dayEvents.map((m) => liveMemberRow(m, badge(m.celebrationOpt && (m.emailOpt || m.smsOpt) ? "Greeting permitted" : "No greeting permission"))).join("") || '<div class="list-empty"><div class="empty-symbol">♡</div><h3>A quiet day</h3><p class="hint mt">No ' + (state.calType === "birthday" ? "birthdays" : "anniversaries") + " on this date.</p></div>"}</section><section class="card"><div class="card-head"><h2>Greeting preview</h2></div><div class="card-pad"><p class="hint">${state.calType === "birthday" ? "Birthday blessing" : "Anniversary blessing"} · Personalised for ${esc(dayEvents[0]?.first || "a member")}</p><div class="sms-bubble">${dayEvents.length ? esc(personalise(state.templates[state.calType === "birthday" ? 0 : 1].sms, dayEvents[0])) : "Select a date with a saved member celebration to preview a greeting."}</div><div class="mt">${btn("Edit template", "celebration-template", "w100", 'data-id="' + (state.calType === "birthday" ? "t1" : "t2") + '"')}</div></div></section></div></div>`
     );
   }
   function programmes() {
@@ -1758,7 +1792,9 @@ export function mountCareUI(root, options = {}) {
         render();
       },
       "cal-month": () => {
-        state.calMonth = (state.calMonth + Number(b.dataset.delta) + 12) % 12;
+        const nextMonth = new Date(state.calYear, state.calMonth + Number(b.dataset.delta), 1);
+        state.calMonth = nextMonth.getMonth();
+        state.calYear = nextMonth.getFullYear();
         state.calDay = 1;
         render();
       },
@@ -2458,6 +2494,8 @@ export function mountCareUI(root, options = {}) {
     window.history.replaceState(null, "", "/" + location.hash.slice(1));
   }
   render();
+  if (options.memberDirectorySaved) void refreshCelebrations();
+  listen(window, "focus", () => { if (["overview", "celebrations"].includes(currentRoute().split("/")[0])) void refreshCelebrations(); });
   return () => {
     disposeTheme();
     lifecycle.abort();
