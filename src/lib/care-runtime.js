@@ -257,37 +257,75 @@ export function mountCareUI(root, options = {}) {
       (nav.find((n) => n[0] === base)?.[1] || "Member care") + " · Vine Branch";
   }
   function overview() {
-    if (liveCelebrations.status !== "ready") return title("Every person matters.", `${lagosDisplay()} · Your care queue for today`) + `<section class="card">${celebrationNotice()}</section>`;
-    const b = liveMembers().filter((m) => m.birthday === lagosToday().md),
-      a = liveMembers().filter((m) => m.anniversary === lagosToday().md);
-    const due = [
-      ...b.map((m) => ({ m, type: "Birthday", time: "08:00" })),
-      ...a.map((m) => ({ m, type: "Anniversary", time: "08:30" })),
-    ];
-    const delivered = state.logs.filter((l) => l.status === "Delivered").length;
-    return (
-      title(
-        "Every person matters.",
-        `${lagosDisplay()} · Your care queue for today`,
-        link(`${icon("plus")} New campaign`, "compose", "primary"),
-      ) +
-      `<div class="greeting-panel"><div><h2>A little care goes a long way.</h2><p>${b.length} birthdays and ${a.length} wedding anniversaries today. Greetings are previews; messaging is currently paused.</p></div><div class="date-stamp"><strong>${lagosStamp().day}</strong><span>${lagosStamp().month}<br>${lagosStamp().weekday}</span></div></div><div class="stats"><div class="stat"><span class="stat-title">People in your care</span><strong class="stat-number">${liveMembers().length}</strong><small>${liveMembers().filter((m) => m.status === "New member").length} new members · ${liveMembers().filter((m) => m.status === "Visitor").length} visitors</small></div><div class="stat"><span class="stat-title">Celebrations today</span><strong class="stat-number">${due.length.toString().padStart(2, "0")}</strong><small>Birthday & anniversary greetings</small></div><div class="stat"><span class="stat-title">Scheduled invitations</span><strong class="stat-number">${state.campaigns
-        .filter(
-          (c) =>
-            c.status.includes("Scheduled") || c.status === "Demo scheduled",
-        )
-        .length.toString()
-        .padStart(
-          2,
-          "0",
-        )}</strong><small>Next: 15 October, 09:00</small></div><div class="stat"><span class="stat-title">Delivery status</span><strong class="stat-number">${delivered}/${state.logs.length}</strong><small>Sample messages marked delivered</small></div></div><div class="grid two"><section class="card"><div class="card-head"><h2>Celebrating today</h2><a class="text-link" href="/celebrations" data-care-route="">View calendar</a></div>${due.map(({ m, type }) => liveMemberRow(m, `<span class="badge ${type === "Birthday" ? "red" : "blue"}">${type}</span><small>${m.celebrationOpt && (m.emailOpt || m.smsOpt) ? "Greeting permitted (sending paused)" : "No greeting permission"}</small>`)).join("") || '<div class="card-pad hint">No saved birthdays or anniversaries today.</div>'}<div class="card-foot hint">Greetings respect each member’s channel and celebration preferences.</div></section><section class="card"><div class="card-head"><h2>Next programme</h2>${badge("Upcoming")}</div><div class="card-pad"><div class="eyebrow">Sunday, 18 October · 09:00</div><h2>Family & Friends Sunday</h2><p class="muted mt" style="font-size:.875rem">A Sunday to worship together and bring someone you love.</p><div class="event-meta">${icon("pin")}Vine Branch Church, Ibadan</div><div class="button-row">${link("Review invitation", "compose/c1", "navy")}${link("Programme details", "programmes")}</div></div></section><section class="card"><div class="card-head"><h2>Recently welcomed</h2><a href="/members" data-care-route="" class="text-link">All members</a></div>${liveMembers()
-        .filter((m) => m.status !== "Member")
-        .slice(0, 3)
-        .map((m) => liveMemberRow(m, badge(m.status)))
-        .join(
-          "",
-        )}</section><section class="card"><div class="card-head"><h2>Needs your attention</h2>${badge(state.logs.filter((l) => l.status === "Failed").length + " issues")}</div><div class="card-pad"><div class="notice amber">${state.logs.some((l) => l.status === "Failed") ? "An anniversary email needs a retry. Check the delivery record before trying again." : "No failed messages need your attention. Review the delivery queue for updates."}</div>${link("Review delivery issue", "delivery", "w100")}<div class="settings-row"><div><strong>Provider setup</strong><small>Connect email and SMS for production.</small></div><a href="/settings/providers" data-care-route="" class="text-link">Review</a></div></div></section></div>`
-    );
+    const members = liveMembers();
+    const today = lagosToday();
+    const birthdays = members.filter((m) => m.birthday === today.md);
+    const anniversaries = members.filter((m) => m.anniversary === today.md);
+    const celebrationsToday = [...birthdays.map((m) => ({ m, label: "Birthday" })), ...anniversaries.map((m) => ({ m, label: "Anniversary" }))];
+    const loaded = liveCelebrations.status === "ready";
+    const monthDate = new Date(`${today.iso}T12:00:00`);
+    const year = monthDate.getFullYear();
+    const month = monthDate.getMonth();
+    const firstWeekday = new Date(year, month, 1).getDay();
+    const days = new Date(year, month + 1, 0).getDate();
+    const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(monthDate);
+    const monthGrid = Array.from({length: firstWeekday}, () => '<span class="vbc-calendar-empty"></span>').join("") +
+      Array.from({length: days}, (_, i) => {
+        const day = i + 1;
+        const md = `${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
+        const hasEvent = loaded && members.some((m) => m.birthday === md || m.anniversary === md);
+        return `<span class="vbc-calendar-day ${day === monthDate.getDate() ? "today" : ""} ${hasEvent ? "has-event" : ""}" aria-label="${day} ${monthLabel}${hasEvent ? ", celebration" : ""}">${day}${hasEvent ? '<i></i>' : ''}</span>`;
+      }).join("");
+    const metric = (name, number, detail, symbol, tone="") => `<div class="vbc-metric ${tone}"><div class="vbc-metric-icon">${icon(symbol)}</div><div class="vbc-metric-content"><span>${name}</span><strong>${number}</strong><small>${detail}</small></div></div>`;
+    const row = ({m,label}) => `<a class="vbc-priority-row" href="/profile/${encodeURIComponent(m.id)}" data-care-route=""><span class="avatar small">${esc((m.first||"")[0])}${esc((m.last||"")[0])}</span><span class="vbc-priority-person"><strong>${esc(m.first+" "+m.last)}</strong><small>${label} today</small></span><span class="badge ${label === "Birthday" ? "red" : "blue"}">${label}</span><span aria-hidden="true">›</span></a>`;
+    return `<div class="vbc-overview">
+      <section class="vbc-overview-hero"><div class="eyebrow">MEMBER CARE</div><h1>EVERY PERSON MATTERS.</h1><p>Your church family, thoughtfully cared for.</p><span class="vbc-hero-motto">A PEOPLE<br>A FAMILY<br>A PURPOSE</span></section>
+      <div class="vbc-metrics">
+        ${metric("ACTIVE MEMBERS",loaded ? members.filter(m=>m.status === "Member").length : "—",loaded ? "Saved members" : "Awaiting member directory","members")}
+        ${metric("NEW MEMBERS & VISITORS",loaded ? members.filter(m=>m.status !== "Member").length : "—",loaded ? "Saved member records" : "Awaiting member directory","members")}
+        ${metric("FOLLOW-UPS","OPEN","View assigned follow-up work","check","accent action")}
+        ${metric("CELEBRATIONS TODAY",loaded ? celebrationsToday.length : "—",loaded ? `${birthdays.length} birthdays · ${anniversaries.length} anniversaries` : "Awaiting celebrations","celebrations","purple")}
+      </div>
+      <div class="vbc-overview-grid"><div class="vbc-overview-main">
+        <section class="vbc-panel"><div class="vbc-panel-head"><div><h2>Care priorities</h2><p>People and milestones that need your attention.</p></div><a href="/followups" class="vbc-panel-link">View follow-ups →</a></div>
+          ${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading saved member records…" : liveCelebrations.message || "Saved member records are unavailable.")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0,5).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No birthdays or anniversaries today. Visit Follow-ups to review assigned care work.</div>'}
+        </section>
+        <section class="vbc-panel vbc-quick-panel"><div class="vbc-panel-head"><div><h2>Quick actions</h2><p>Common tasks for church administration.</p></div></div><div class="vbc-quick-grid">
+          <a href="/guests" data-care-route=""><span class="vbc-quick-icon red">${icon("members")}</span><strong>Review guests</strong><small>Manage visitor submissions</small><b>↗</b></a>
+          <a href="/followups"><span class="vbc-quick-icon violet">${icon("check")}</span><strong>Assign follow-up</strong><small>Coordinate care actions</small><b>↗</b></a>
+          <a href="/members" data-care-route=""><span class="vbc-quick-icon blue">${icon("plus")}</span><strong>Members</strong><small>Open member directory</small><b>↗</b></a>
+          <a href="/celebrations" data-care-route=""><span class="vbc-quick-icon pink">${icon("celebrations")}</span><strong>Celebrations</strong><small>Birthdays and anniversaries</small><b>↗</b></a>
+        </div></section>
+      </div><aside class="vbc-overview-aside">
+        <section class="vbc-panel vbc-calendar-panel"><div class="vbc-panel-head"><h2>${monthLabel}</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View calendar →</a></div><div class="vbc-calendar-grid">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<span class="vbc-calendar-weekday">${d}</span>`).join("")}${monthGrid}</div></section>
+        <section class="vbc-panel"><div class="vbc-panel-head"><h2>Today's celebrations</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View all →</a></div>${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading…" : "Unavailable")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0,4).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No celebrations today.</div>'}</section>
+      </aside></div>
+      <section class="vbc-panel vbc-programmes-shortcut"><div class="vbc-panel-head"><div><h2>Upcoming programmes</h2><p>Next scheduled programmes from the Programmes tab.</p></div><a href="/programmes" data-care-route="" class="vbc-panel-link">View programmes →</a></div>${upcomingProgrammeCards()}</section>
+      <p class="vbc-overview-footnote">Member statistics and celebrations use saved records. Messaging remains paused.</p>
+    </div>`;
+  }
+  function upcomingProgrammeCards() {
+    // Share the same in-memory programme records as the Programmes tab.
+    // This is a frontend demo source, not a persistent Supabase programme feed.
+    const today = lagosToday().iso;
+    const upcoming = state.events
+      .filter((event) => typeof event.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(event.date) && event.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date) || String(a.time || "").localeCompare(String(b.time || "")))
+      .slice(0, 3);
+    if (!upcoming.length) return '<div class="vbc-panel-empty">No upcoming programmes have been added. Visit Programmes to create one.</div>';
+    const artwork = ["/programme-images/family-friends.jpg", "/programme-images/worship.jpg", "/programme-images/welcome.jpg"];
+    return `<div class="vbc-upcoming-grid">${upcoming.map((event) => {
+      const index = state.events.findIndex((item) => item.id === event.id);
+      const image = event.image || artwork[Math.max(index, 0) % artwork.length];
+      const parsed = new Date(`${event.date}T12:00:00Z`);
+      const day = new Intl.DateTimeFormat("en-GB", { day: "2-digit", timeZone: "UTC" }).format(parsed);
+      const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(parsed).toUpperCase();
+      return `<a href="/programmes" data-care-route="" class="vbc-upcoming-card" aria-label="View programme: ${esc(event.title)}">
+        <span class="vbc-upcoming-art"><img src="${esc(image)}" alt="" loading="lazy" /><span class="vbc-upcoming-date"><strong>${day}</strong><small>${month}</small></span></span>
+        <span class="vbc-upcoming-body"><strong>${esc(event.title)}</strong><small>${esc(event.time || "Time not set")} · ${esc(event.venue || "Venue not set")}</small></span>
+        <span class="vbc-upcoming-arrow" aria-hidden="true">→</span>
+      </a>`;
+    }).join("")}</div>`;
   }
   function filteredMembers() {
     return state.members.filter(

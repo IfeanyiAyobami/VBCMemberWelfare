@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { themeBootstrap } from "@/lib/theme.js";
 import "./globals.css";
 import "./themes.css";
+import "./premium.css";
 import "./auth.css";
 import "./members.css";
 import "./guests.css";

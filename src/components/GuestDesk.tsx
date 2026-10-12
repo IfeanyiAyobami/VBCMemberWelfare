@@ -227,14 +227,6 @@ export default function GuestDesk({
               <span className="badge blue">View access</span>
             )}
           </div>
-          <div className="notice mb">
-            <strong>Elementor connection</strong>
-            <p className="mt">
-              Website cards appear here after the WordPress bridge is installed
-              and enabled. Manual cards can be saved now; messaging remains
-              paused.
-            </p>
-          </div>
           <form
             className="toolbar"
             onSubmit={(e) => {
@@ -330,7 +322,7 @@ export default function GuestDesk({
                     <td>{g.visit_date}</td>
                     <td>
                       {g.source === "wordpress"
-                        ? "Elementor website"
+                        ? "Main Church Website"
                         : "Staff card"}
                     </td>
                     <td>
@@ -788,7 +780,7 @@ function GuestReview({
           <p>
             Received {time(guest.createdAt)} ·{" "}
             {guest.source === "wordpress"
-              ? "Elementor website"
+              ? "Main Church Website"
               : "Entered by " + guest.enteredBy}
           </p>
         </div>
