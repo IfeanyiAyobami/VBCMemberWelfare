@@ -1,6 +1,6 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.7.4",
+  "version": "0.7.5.1",
   "private": true,
   "type": "module",
   "description": "Vine Branch Church care dashboard \u2014 First-Timer Gateway v1.1.3 integration",

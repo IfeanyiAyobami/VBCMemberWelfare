@@ -92,6 +92,8 @@ export function emptyGuest(): GuestDraft {
     ...Object.fromEntries(
       Object.keys(PREFERENCE_LABELS).map((k) => [k, false]),
     ),
+    email_opt_in: true,
+    sms_opt_in: true,
     visit_date: todayInLagos(),
   } as GuestDraft;
 }

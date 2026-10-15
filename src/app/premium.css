@@ -149,3 +149,32 @@
  .vbc-overview .vbc-metric{grid-template-columns:48px minmax(0,1fr);min-height:100px}
  .vbc-overview .vbc-metric-icon{width:46px;height:46px}
 }
+
+/* v0.7.5: light Overview follows the white Celebrations workspace */
+:root:not([data-theme="dark"]) .vbc-overview{color:#101943}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel{background:#fff;color:#14204b;border-color:#e0e5f0;box-shadow:0 4px 18px #111c4810}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel-head{border-bottom-color:#e4e8f2}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel-head h2{color:#101943}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel-head p,
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel-empty,
+:root:not([data-theme="dark"]) .vbc-overview .vbc-overview-footnote{color:#66718e}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-panel-link{color:#233476!important;background:#fff;border-color:#dce3f3}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-priority-row{color:#15214b!important;border-bottom-color:#e4e8f2}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-priority-person small{color:#687591}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-calendar-weekday{color:#65708b}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-calendar-day{color:#18234d}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-calendar-day.today{color:#fff}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-calendar-day i{background:#6158d5}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-quick-grid>a{background:#f8f9fe;border-color:#e2e7f2;color:#14204b!important}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-quick-grid small{color:#64718e}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-metric{background:#fff;border-color:#e0e5f0;box-shadow:0 4px 18px #111c4810}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-metric-content>span{color:#34416e}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-metric-content>strong{color:#111c48}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-metric-content>small{color:#687591}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-upcoming-card{background:#f8f9fe;border-color:#dfe5f1;color:#14204b!important}
+:root:not([data-theme="dark"]) .vbc-overview .vbc-upcoming-body small{color:#66718e}
+.vbc-followup-shortcut{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;font-size:12px;font-weight:700;color:var(--ink);text-decoration:none;white-space:nowrap}
+.vbc-followup-shortcut:hover{border-color:#7368e6;background:#7368e612}
+[data-theme="dark"] .vbc-followup-shortcut{color:#fff;border-color:#4353a4}
+.fu-return-link{margin-top:18px;border:1px solid #8c8bd480!important;background:#ffffff12!important}
+@media(max-width:680px){.vbc-followup-shortcut{padding:9px;font-size:11px}}

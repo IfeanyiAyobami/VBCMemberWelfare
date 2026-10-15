@@ -25,7 +25,6 @@ const navigation = [
   ["overview", "Overview"],
   ["members", "Members"],
   ["guests", "Guest submissions"],
-  ["followups", "Follow-ups"],
   ["celebrations", "Celebrations"],
   ["programmes", "Programmes"],
   ["campaigns", "Campaigns"],
@@ -441,6 +440,7 @@ export default function MemberDesk({
               >
                 <span>Light mode</span>
               </button>
+              <a className="vbc-followup-shortcut" href="/followups" aria-label="Open Follow-ups workspace"><span aria-hidden="true">◎</span> Follow-ups <span aria-hidden="true">↗</span></a>
               <span className="time-zone">Africa / Lagos</span>
               <a className="text-link" href="/guide">
                 Screen guide
@@ -1167,8 +1167,7 @@ function MemberEditor({
           with +234. Milestones keep month and day only.
         </p>
         <div className="notice mt">
-          Saving these details does not change message permissions. New members
-          begin with permissions off.
+          Saving these details does not change message permissions. New member records do not establish messaging consent. Review and record channel preferences separately before sending.
         </div>
       </form>
       <div className="modal-foot">

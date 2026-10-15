@@ -212,7 +212,7 @@ export function createDemoState(defaultEmailDesign) {
     importHeaders: [],
     importMapping: {},
     joinStep: 0,
-    join: {},
+    join: { emailOpt: true, smsOpt: true },
     joinDone: false,
     preferenceSaved: false,
     campaignStep: 0,
