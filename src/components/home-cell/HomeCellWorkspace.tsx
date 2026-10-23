@@ -690,7 +690,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
             Home <span>›</span> Home Cell Office <span>›</span>{" "}
             {titles[section]}
           </div>
-          <section className={"hc-hero hc-photo-" + section}>
+          <section className={"hc-hero hc-photo-" + section + (section === "leaders" ? " hc-hero-accounts" : "")}>
             <div>
               <small>VINE BRANCH CHURCH · HOME CELL OFFICE</small>
               <h1>
@@ -716,7 +716,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               I in the midst of them.”<small>MATTHEW 18:20</small>
             </blockquote>
           </section>
-          <div className="hc-filters">
+          {section !== "leaders" && <div className="hc-filters">
             <label>
               Area
               <select
@@ -795,7 +795,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
             >
               Apply dates
             </button>
-          </div>
+          </div>}
           {error && (
             <div className="hc-alert" role="alert">
               {error}

@@ -554,5 +554,28 @@ const failBatch={...batch,request_id:uid(207),rows:[{...baseRow,phone:'+23480987
 await assert.rejects(onboard(leader,failBatch),/EXISTING_MEMBER/);
 ok((await db.query("select count(*)::int n from care_members where email='rollback@example.test'")).rows[0].n===0,'A CSV batch failure rolls back all earlier new records');
 ok((await db.query("select has_function_privilege('authenticated','hco_transfer_decide(uuid,uuid,text,text)','EXECUTE') allowed")).rows[0].allowed===false,'Direct authenticated transfer RPC execution denied');
+
+await db.exec(fs.readFileSync(root+'/supabase/016_home_cell_password_recovery.sql','utf8'));
+await db.exec(fs.readFileSync(root+'/supabase/016_home_cell_password_recovery.sql','utf8'));
+const passwordAssignment=(await db.query("select id from hco_assignments where user_id=$1 and active limit 1",[outsider])).rows[0].id;
+const beginReset=(actor,assignment,request,reason='Leader lost the temporary password')=>db.query('select hco_password_begin($1,$2,$3,$4) result',[actor,assignment,request,reason]);
+await assert.rejects(beginReset(coord,passwordAssignment,uid(400)),/ADMIN_REQUIRED/);ok(true,'Coordinator cannot replace a shared dashboard password');
+await assert.rejects(beginReset(admin,passwordAssignment,uid(400),'bad'),/REASON_REQUIRED/);ok(true,'Password replacement requires a meaningful reason');
+const selfAssignment=(await db.query("insert into hco_assignments(user_id,role) values($1,'church_admin') returning id",[admin])).rows[0].id;
+await assert.rejects(beginReset(admin,selfAssignment,uid(400)),/SELECT_OTHER/);ok(true,'Administrator cannot use reset endpoint on their own account');
+const reset=await beginReset(admin,passwordAssignment,uid(400));ok(reset.rows[0].result.user_id===outsider,'Password reset target is resolved from the active assignment');
+ok(!!(await db.query('select session_revoked_after from hco_access where user_id=$1',[outsider])).rows[0].session_revoked_after,'Beginning password recovery revokes prior HCO sessions');
+await assert.rejects(beginReset(admin,passwordAssignment,uid(400)),/ALREADY_REQUESTED/);ok(true,'A lost acknowledgement cannot replay the same password operation');
+await assert.rejects(beginReset(admin,passwordAssignment,uid(401)),/IN_PROGRESS/);ok(true,'Concurrent and immediate competing password resets are denied');
+await db.query('select hco_password_finish($1,$2,true)',[admin,uid(400)]);
+await db.query('select hco_password_finish($1,$2,true)',[admin,uid(400)]);
+ok((await db.query("select count(*)::int n from hco_audit where action='password_reset_completed' and target_user_id=$1",[outsider])).rows[0].n===1,'Password completion is audited once without password material');
+await db.query("update hco_password_operations set lease_until=now()-interval '1 second' where id=$1",[uid(400)]);
+await beginReset(admin,passwordAssignment,uid(401));await db.query('select hco_password_finish($1,$2,false)',[admin,uid(401)]);
+ok((await db.query('select status from hco_password_operations where id=$1',[uid(401)])).rows[0].status==='uncertain','Unconfirmed provider results remain recorded for reconciliation');
+await db.query("update hco_access set suspended_at=now() where user_id=$1",[outsider]);
+await assert.rejects(beginReset(admin,passwordAssignment,uid(402)),/TARGET_SUSPENDED/);ok(true,'Suspended leaders must be reactivated before password replacement');
+ok((await db.query("select has_function_privilege('authenticated','hco_password_begin(uuid,uuid,uuid,text)','EXECUTE') allowed")).rows[0].allowed===false,'Password reset RPC is inaccessible to direct authenticated clients');
+
 console.log(JSON.stringify({ checks: count, passed: true }));
 await db.close();

@@ -38,3 +38,7 @@ v3.4: migration 014; shared onboarding validation/CSV parser; onboarding and tra
 ## v3.5 security and reliability
 
 Framework/lockfile patch; shared Supabase fetch timeouts and safe read retries; private database auth throttle (015); bounded JSON and sanitized Home Cell route telemetry; browser headers; CI workflow; recovery and infrastructure mapping in HOME_CELL_V3_5_HARDENING.md. All Home Cell route exports use the common wrapper; business permissions and transactions remain in their existing handlers/RPCs.
+
+## v3.6 leadership accounts
+
+Redesigned LeadershipAccounts.tsx with focused AccountDialog.tsx and leadership-accounts.css. Optional popup notices added to LeaderContacts/AuditHistory. Leadership header compact and irrelevant date filters hidden in HomeCellWorkspace. Leaders GET exposes current actor/password-setup state. New server-only leaders/password route and additive SQL 016 implement audited, serialized replacement passwords. Browser and database regressions expanded. Setup and limits: HOME_CELL_V3_6_LEADERSHIP_ACCOUNTS.md.

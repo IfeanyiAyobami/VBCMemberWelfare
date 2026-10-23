@@ -73,9 +73,13 @@ function userData(email, user) {
     email,
     aud: "authenticated",
     role: "authenticated",
-    app_metadata: { provider: "email", providers: ["email"], ...user.app_metadata },
+    app_metadata: {
+      provider: "email",
+      providers: ["email"],
+      ...user.app_metadata,
+    },
     phone: user.phone,
-    user_metadata: { role: "administrator" },
+    user_metadata: { role: "administrator", ...user.user_metadata },
     created_at: "2026-10-01T00:00:00Z",
   };
 }
@@ -117,11 +121,34 @@ function json(res, status, data) {
   res.writeHead(status, { "Content-Type": "application/json" });
   res.end(JSON.stringify(data));
 }
-let directoryContact={cell_id:"00000000-0000-4000-8000-000000000011",leader_details:"Kevin Iwuji Phone number: 07032621020",team_details:"",area_details:"Total Garden/Mokola",version:1};
-const phoneUsernames=new Map();
-let nativePhoneAttempts=0;
-const onboardingRoster=[{id:'00000000-0000-4000-8000-000000000301',other_names:'Existing',surname:'Onboard Member',phone:'+2348090011223',email:'existing.onboard@example.test',status:'member',archived_at:null}];
-const onboardingWrites=[],transferDecisions=[],transferInbox=[];
+let directoryContact = {
+  cell_id: "00000000-0000-4000-8000-000000000011",
+  leader_details: "Kevin Iwuji Phone number: 07032621020",
+  team_details: "",
+  area_details: "Total Garden/Mokola",
+  version: 1,
+};
+const phoneUsernames = new Map();
+let nativePhoneAttempts = 0;
+const leadershipAssignments = [];
+const passwordOperations = new Map();
+let passwordProviderFailure = false;
+let passwordAuditFailure = false;
+let testNonAdmin = false;
+const onboardingRoster = [
+  {
+    id: "00000000-0000-4000-8000-000000000301",
+    other_names: "Existing",
+    surname: "Onboard Member",
+    phone: "+2348090011223",
+    email: "existing.onboard@example.test",
+    status: "member",
+    archived_at: null,
+  },
+];
+const onboardingWrites = [],
+  transferDecisions = [],
+  transferInbox = [];
 let existingLeaderWrites = [],
   inviteCalls = 0;
 const mock = createServer(async (req, res) => {
@@ -131,25 +158,97 @@ const mock = createServer(async (req, res) => {
   const auth = tokens.get(
     (req.headers.authorization || "").replace(/^Bearer /i, ""),
   );
-  if(req.headers.apikey==='sb_secret_hco_fixture_0123456789' && url.pathname==='/rest/v1/care_members'){
-    let rows=onboardingRoster.filter(m=>['id','phone','email'].every(k=>{const f=url.searchParams.get(k);return !f||f==='eq.'+m[k]||f.startsWith('in.')&&f.includes(m[k]);}));
-    const filter=url.searchParams.get('or');if(filter){const literal=filter.split('.ilike.%')[1]?.split('%')[0]?.toLowerCase()||'';rows=rows.filter(m=>(m.other_names+' '+m.surname+' '+m.phone+' '+m.email).toLowerCase().includes(literal));}
-    res.setHeader('Content-Range','0-'+Math.max(rows.length-1,0)+'/'+rows.length);return json(res,200,rows);
+  if (
+    req.headers.apikey === "sb_secret_hco_fixture_0123456789" &&
+    url.pathname === "/rest/v1/care_members"
+  ) {
+    let rows = onboardingRoster.filter((m) =>
+      ["id", "phone", "email"].every((k) => {
+        const f = url.searchParams.get(k);
+        return (
+          !f || f === "eq." + m[k] || (f.startsWith("in.") && f.includes(m[k]))
+        );
+      }),
+    );
+    const filter = url.searchParams.get("or");
+    if (filter) {
+      const literal =
+        filter.split(".ilike.%")[1]?.split("%")[0]?.toLowerCase() || "";
+      rows = rows.filter((m) =>
+        (m.other_names + " " + m.surname + " " + m.phone + " " + m.email)
+          .toLowerCase()
+          .includes(literal),
+      );
+    }
+    res.setHeader(
+      "Content-Range",
+      "0-" + Math.max(rows.length - 1, 0) + "/" + rows.length,
+    );
+    return json(res, 200, rows);
   }
-  if(req.headers.apikey==='sb_secret_hco_fixture_0123456789' && url.pathname==='/rest/v1/care_guest_submissions'){res.setHeader('Content-Range','0-0/0');return json(res,200,[]);}
-  if(url.pathname==='/rest/v1/hco_member_cells'){
-    const rows=[{member_id:onboardingRoster[0].id,cell_id:'00000000-0000-4000-8000-000000000099'}];res.setHeader('Content-Range','0-0/1');return json(res,200,rows);
+  if (
+    req.headers.apikey === "sb_secret_hco_fixture_0123456789" &&
+    url.pathname === "/rest/v1/care_guest_submissions"
+  ) {
+    res.setHeader("Content-Range", "0-0/0");
+    return json(res, 200, []);
   }
-  if(url.pathname==='/rest/v1/rpc/hco_onboard_members'){
-    let raw='';for await(const c of req)raw+=c;const b=JSON.parse(raw);onboardingWrites.push(b.p_data);
-    const result=b.p_data.rows.map(row=>{
-      if(row.existing_id){if(!transferInbox.length)transferInbox.push({id:randomUUID(),member_id:row.existing_id,member_name:'Existing Onboard Member',source_names:'Previous Cell',target_name:'Mokola Central',status:'pending',reason:b.p_data.reason,can_keep:true,can_move:true});return {member_id:row.existing_id,action:'transfer_requested'};}
-      const id=randomUUID();onboardingRoster.push({id,other_names:row.first,surname:row.last,phone:row.phone,email:row.email,status:'new_member',archived_at:null});return {member_id:id,action:'created_and_assigned'};
-    });return json(res,200,result);
+  if (url.pathname === "/rest/v1/hco_member_cells") {
+    const rows = [
+      {
+        member_id: onboardingRoster[0].id,
+        cell_id: "00000000-0000-4000-8000-000000000099",
+      },
+    ];
+    res.setHeader("Content-Range", "0-0/1");
+    return json(res, 200, rows);
   }
-  if(url.pathname==='/rest/v1/rpc/hco_transfer_inbox')return json(res,200,{items:transferInbox,has_more:false});
-  if(url.pathname==='/rest/v1/rpc/hco_transfer_decide'){
-    let raw='';for await(const c of req)raw+=c;const b=JSON.parse(raw);transferDecisions.push(b);const t=transferInbox.find(t=>t.id===b.p_id);t.status=b.p_decision;t.decision_reason=b.p_reason;return json(res,200,t);
+  if (url.pathname === "/rest/v1/rpc/hco_onboard_members") {
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    onboardingWrites.push(b.p_data);
+    const result = b.p_data.rows.map((row) => {
+      if (row.existing_id) {
+        if (!transferInbox.length)
+          transferInbox.push({
+            id: randomUUID(),
+            member_id: row.existing_id,
+            member_name: "Existing Onboard Member",
+            source_names: "Previous Cell",
+            target_name: "Mokola Central",
+            status: "pending",
+            reason: b.p_data.reason,
+            can_keep: true,
+            can_move: true,
+          });
+        return { member_id: row.existing_id, action: "transfer_requested" };
+      }
+      const id = randomUUID();
+      onboardingRoster.push({
+        id,
+        other_names: row.first,
+        surname: row.last,
+        phone: row.phone,
+        email: row.email,
+        status: "new_member",
+        archived_at: null,
+      });
+      return { member_id: id, action: "created_and_assigned" };
+    });
+    return json(res, 200, result);
+  }
+  if (url.pathname === "/rest/v1/rpc/hco_transfer_inbox")
+    return json(res, 200, { items: transferInbox, has_more: false });
+  if (url.pathname === "/rest/v1/rpc/hco_transfer_decide") {
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    transferDecisions.push(b);
+    const t = transferInbox.find((t) => t.id === b.p_id);
+    t.status = b.p_decision;
+    t.decision_reason = b.p_reason;
+    return json(res, 200, t);
   }
   if (url.pathname === "/auth/v1/token") {
     let text = "";
@@ -165,8 +264,16 @@ const mock = createServer(async (req, res) => {
       refreshCount++;
       return json(res, 200, issueSession(existing.email, existing.user));
     }
-    if(data.phone){nativePhoneAttempts++;return json(res,400,{code:"phone_provider_disabled",message:"Phone provider disabled"});}
-    const user = users.get(data.email) || [...users.values()].find(u=>u.email===data.email);
+    if (data.phone) {
+      nativePhoneAttempts++;
+      return json(res, 400, {
+        code: "phone_provider_disabled",
+        message: "Phone provider disabled",
+      });
+    }
+    const user =
+      users.get(data.email) ||
+      [...users.values()].find((u) => u.email === data.email);
     if (!user || data.password !== (user.password || "Fixture-password-123!"))
       return json(res, 400, {
         code: "invalid_credentials",
@@ -175,18 +282,41 @@ const mock = createServer(async (req, res) => {
     return json(res, 200, issueSession(data.email || user.phone, user));
   }
   if (url.pathname === "/auth/v1/user" && req.method === "PUT") {
-    let raw="";for await(const c of req)raw+=c;const b=JSON.parse(raw);
-    if(!auth)return json(res,401,{});auth.user.password=b.password;
-    return json(res,200,userData(auth.email,auth.user));
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    if (!auth) return json(res, 401, {});
+    auth.user.password = b.password;
+    return json(res, 200, userData(auth.email, auth.user));
   }
-  if (url.pathname.startsWith("/auth/v1/admin/users/") && req.method === "PUT") {
-    let raw="";for await(const c of req)raw+=c;const b=JSON.parse(raw);
-    const user=[...users.values()].find(u=>u.id===url.pathname.split('/').pop());
-    if(!user)return json(res,404,{});Object.assign(user,b);return json(res,200,userData(user.email,user));
+  if (
+    url.pathname.startsWith("/auth/v1/admin/users/") &&
+    req.method === "PUT"
+  ) {
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    const user = [...users.values()].find(
+      (u) => u.id === url.pathname.split("/").pop(),
+    );
+    if (!user) return json(res, 404, {});
+    if (b.password && passwordProviderFailure)
+      return json(res, 503, {
+        message: "fixture lost password acknowledgement",
+      });
+    Object.assign(user, b);
+    return json(res, 200, userData(user.email, user));
   }
-  if (url.pathname.startsWith("/auth/v1/admin/users/") && req.method === "GET") {
-    const user=[...users.values()].find(u=>u.id===url.pathname.split('/').pop());
-    return user?json(res,200,userData(user.email,user)):json(res,404,{message:"User missing"});
+  if (
+    url.pathname.startsWith("/auth/v1/admin/users/") &&
+    req.method === "GET"
+  ) {
+    const user = [...users.values()].find(
+      (u) => u.id === url.pathname.split("/").pop(),
+    );
+    return user
+      ? json(res, 200, userData(user.email, user))
+      : json(res, 404, { message: "User missing" });
   }
   if (url.pathname === "/auth/v1/user") authUserLookups++;
   if (url.pathname === "/auth/v1/user")
@@ -202,13 +332,19 @@ const mock = createServer(async (req, res) => {
     return res.end();
   }
   if (url.pathname === "/auth/v1/admin/users" && req.method === "POST") {
-    let raw="";for await(const c of req)raw+=c;const b=JSON.parse(raw);
-    const user={id:randomUUID(),...b};users.set(b.email || b.phone,user);
-    return json(res,200,userData(b.email,user));
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    const user = { id: randomUUID(), ...b };
+    users.set(b.email || b.phone, user);
+    return json(res, 200, userData(b.email, user));
   }
   if (url.pathname === "/auth/v1/admin/users")
     return json(res, 200, {
-      users: [...[...users.values()].filter(u=>u.password).map(u=>userData(u.email,u)),
+      users: [
+        ...[...users.values()]
+          .filter((u) => u.password)
+          .map((u) => userData(u.email, u)),
         {
           id: "00000000-0000-4000-8000-000000000099",
           email: "known.leader@example.test",
@@ -222,19 +358,75 @@ const mock = createServer(async (req, res) => {
     });
   }
   if (url.pathname === "/rest/v1/rpc/hco_rate_limit") {
-    let raw=""; for await (const chunk of req) raw+=chunk;
+    let raw = "";
+    for await (const chunk of req) raw += chunk;
     ratePolicies.push(JSON.parse(raw));
-    if (rateMode === 'unavailable') return json(res, 503, { message: 'fixture unavailable' });
-    return json(res, 200, { allowed: rateMode !== 'deny', retry_after: 300 });
+    if (rateMode === "unavailable")
+      return json(res, 503, { message: "fixture unavailable" });
+    return json(res, 200, { allowed: rateMode !== "deny", retry_after: 300 });
+  }
+  if (url.pathname === "/rest/v1/rpc/hco_password_begin") {
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    if (passwordOperations.has(b.p_request))
+      return json(res, 409, { message: "HCO_RESET_ALREADY_REQUESTED" });
+    const a = leadershipAssignments.find((x) => x.id === b.p_assignment);
+    if (!a || a.user_id === b.p_actor)
+      return json(res, 403, { message: "HCO_SELECT_OTHER_LEADER" });
+    passwordOperations.set(b.p_request, { ...b, status: "pending" });
+    return json(res, 200, { user_id: a.user_id });
+  }
+  if (url.pathname === "/rest/v1/rpc/hco_password_finish") {
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    if (passwordAuditFailure)
+      return json(res, 503, { message: "fixture audit unavailable" });
+    passwordOperations.get(b.p_request).status = b.p_completed
+      ? "completed"
+      : "uncertain";
+    return json(res, 200, null);
   }
   if (url.pathname === "/rest/v1/rpc/hco_session_allowed")
     return json(res, 200, false);
-  if (["/rest/v1/rpc/hco_leadership_write","/rest/v1/rpc/hco_phone_leadership_write"].includes(url.pathname)) {
+  if (
+    [
+      "/rest/v1/rpc/hco_leadership_write",
+      "/rest/v1/rpc/hco_phone_leadership_write",
+    ].includes(url.pathname)
+  ) {
     let raw = "";
     for await (const chunk of req) raw += chunk;
     const b = JSON.parse(raw);
-    if(b.p_action==='assign'||b.p_action==='add_role')existingLeaderWrites.push(b);
-    if(b.p_data.phone)phoneUsernames.set(b.p_data.phone,b.p_data.user_id);
+    if (b.p_action === "assign" || b.p_action === "add_role") {
+      existingLeaderWrites.push(b);
+      leadershipAssignments.push({
+        id: randomUUID(),
+        user_id: b.p_data.user_id,
+        role: b.p_data.role,
+        area_id: b.p_data.role === "cell_leader" ? null : b.p_data.area_id,
+        cell_id: b.p_data.cell_id || null,
+        active: true,
+        created_at: new Date().toISOString(),
+      });
+    }
+    if (b.p_action === "replace_role") {
+      const a = leadershipAssignments.find(
+        (x) => x.id === b.p_data.assignment_id,
+      );
+      Object.assign(a, {
+        role: b.p_data.role,
+        area_id: b.p_data.role === "cell_leader" ? null : b.p_data.area_id,
+        cell_id: b.p_data.cell_id || null,
+      });
+    }
+    if (b.p_action === "remove_role")
+      leadershipAssignments.splice(
+        leadershipAssignments.findIndex((x) => x.id === b.p_data.assignment_id),
+        1,
+      );
+    if (b.p_data.phone) phoneUsernames.set(b.p_data.phone, b.p_data.user_id);
     return json(res, 200, { user_id: b.p_data.user_id, role: b.p_data.role });
   }
   if (url.pathname === "/rest/v1/hco_areas")
@@ -244,7 +436,14 @@ const mock = createServer(async (req, res) => {
         name: "Total Garden/Mokola",
       },
     ]);
-  if(url.pathname==='/rest/v1/hco_cells' && url.searchParams.get('id')?.startsWith('in.') && url.searchParams.get('id').includes('000000000099'))return json(res,200,[{id:'00000000-0000-4000-8000-000000000099',name:'Previous Cell'}]);
+  if (
+    url.pathname === "/rest/v1/hco_cells" &&
+    url.searchParams.get("id")?.startsWith("in.") &&
+    url.searchParams.get("id").includes("000000000099")
+  )
+    return json(res, 200, [
+      { id: "00000000-0000-4000-8000-000000000099", name: "Previous Cell" },
+    ]);
   if (url.pathname === "/rest/v1/hco_cells")
     return json(res, 200, [
       {
@@ -257,18 +456,54 @@ const mock = createServer(async (req, res) => {
         meeting_end: "19:00",
       },
     ]);
-  if (url.pathname === "/rest/v1/hco_directory_contacts") return json(res,200,[directoryContact]);
+  if (url.pathname === "/rest/v1/hco_directory_contacts")
+    return json(res, 200, [directoryContact]);
   if (url.pathname === "/rest/v1/rpc/hco_directory_write") {
-    let raw="";for await(const c of req)raw+=c;const b=JSON.parse(raw);directoryContact={...b.p_data,version:directoryContact.version+1};return json(res,200,directoryContact);
+    let raw = "";
+    for await (const c of req) raw += c;
+    const b = JSON.parse(raw);
+    directoryContact = { ...b.p_data, version: directoryContact.version + 1 };
+    return json(res, 200, directoryContact);
   }
-  if(url.pathname==='/rest/v1/hco_phone_usernames') {
-    let rows=[...phoneUsernames].map(([phone,user_id])=>({phone,user_id}));
-    const phone=url.searchParams.get('phone'),user=url.searchParams.get('user_id');
-    if(phone)rows=rows.filter(x=>phone==='eq.'+x.phone);
-    if(user?.startsWith('in.'))rows=rows.filter(x=>user.includes(x.user_id));
-    return json(res,200,rows);
+  if (url.pathname === "/rest/v1/hco_phone_usernames") {
+    let rows = [...phoneUsernames].map(([phone, user_id]) => ({
+      phone,
+      user_id,
+    }));
+    const phone = url.searchParams.get("phone"),
+      user = url.searchParams.get("user_id");
+    if (phone) rows = rows.filter((x) => phone === "eq." + x.phone);
+    if (user?.startsWith("in."))
+      rows = rows.filter((x) => user.includes(x.user_id));
+    return json(res, 200, rows);
   }
-  if(url.pathname==='/rest/v1/hco_assignments' && url.searchParams.get('id')==='eq.legacy-phone-assignment')return json(res,200,[{user_id:'00000000-0000-4000-8000-000000000077'}]);
+  if (
+    url.pathname === "/rest/v1/hco_assignments" &&
+    url.searchParams.get("id") !== "eq.legacy-phone-assignment"
+  ) {
+    let rows = leadershipAssignments;
+    if (url.searchParams.has("user_id")) {
+      const id = url.searchParams.get("user_id").slice(3);
+      rows = testNonAdmin
+        ? [
+            {
+              id: randomUUID(),
+              user_id: id,
+              role: "coordinator",
+              area_id: "00000000-0000-4000-8000-000000000010",
+            },
+          ]
+        : rows.filter((x) => x.user_id === id);
+    }
+    return json(res, 200, rows);
+  }
+  if (
+    url.pathname === "/rest/v1/hco_assignments" &&
+    url.searchParams.get("id") === "eq.legacy-phone-assignment"
+  )
+    return json(res, 200, [
+      { user_id: "00000000-0000-4000-8000-000000000077" },
+    ]);
   if (url.pathname.startsWith("/rest/v1/hco_")) {
     return json(res, 200, []);
   }
@@ -276,7 +511,11 @@ const mock = createServer(async (req, res) => {
     url.pathname === "/rest/v1/care_staff" &&
     req.headers.apikey === "sb_secret_hco_fixture_0123456789"
   )
-    return json(res, 200, [{ role: "administrator", is_active: true }]);
+    return json(
+      res,
+      200,
+      testNonAdmin ? [] : [{ role: "administrator", is_active: true }],
+    );
   if (url.pathname === "/rest/v1/care_staff") {
     if (!auth) return json(res, 401, { message: "No access" });
     const user = auth.user;
@@ -854,9 +1093,13 @@ const browser = await chromium.launch({
 try {
   for (let i = 0; i < 90; i++) {
     try {
-      await fetch(origin + "/home-cell/login");
+      await fetch(origin + "/home-cell/login", {
+        signal: AbortSignal.timeout(3000),
+      });
       break;
     } catch {
+      if (child.exitCode !== null || i === 89)
+        throw Error("Fixture server failed: " + output);
       await new Promise((r) => setTimeout(r, 500));
     }
   }
@@ -993,7 +1236,7 @@ try {
     fs.mkdirSync(process.env.HCO_SCREENSHOT_DIR, { recursive: true });
   for (const width of [1440, 768, 390]) {
     await page.setViewportSize({ width, height: 1000 });
-    for (const section of sections) {
+    for (const section of process.env.HCO_LEADERS_ONLY ? [] : sections) {
       await page.goto(
         origin +
           (section === "overview" ? "/home-cell" : "/home-cell/" + section),
@@ -1124,154 +1367,583 @@ try {
   console.log(
     "PASS visitor details and opt-outs survive date application and area changes",
   );
+  // Real leadership routes with local fixture auth; no native confirm dialogs.
+  users.set("known.leader@example.test", {
+    id: "00000000-0000-4000-8000-000000000099",
+    email: "known.leader@example.test",
+    active: true,
+    role: "editor",
+    user_metadata: { full_name: "Known Leader" },
+  });
   await page.goto(origin + "/home-cell/leaders");
+  await page.route("**/api/home-cell/leaders**", async (route) =>
+    route.continue({ headers: { ...route.request().headers(), origin } }),
+  );
+  await page.getByRole("button", { name: "Add leader", exact: false }).click();
+  await page.getByRole("button", { name: "Continue to role" }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Enter an email address, phone number" })
+    .waitFor();
+  await page.getByRole("button", { name: "Got it", exact: true }).click();
   await page
     .getByLabel("Email", { exact: true })
     .fill("known.leader@example.test");
-  await page
-    .getByLabel("From date (DD/MM/YYYY)", { exact: true })
-    .fill("01/10/2025");
-  await page.getByRole("button", { name: "Apply dates", exact: true }).click();
-  await page.waitForTimeout(500);
+  await page.getByLabel("Full name", { exact: true }).fill("Known Leader");
+  await page.getByRole("button", { name: "Continue to role" }).click();
+  await page.getByLabel("Area", { exact: true }).selectOption(area.id);
+  await page.getByLabel("Home cell", { exact: true }).selectOption(cell.id);
+  await page.getByRole("button", { name: "Back", exact: true }).click();
   assert.equal(
     await page.getByLabel("Email", { exact: true }).inputValue(),
     "known.leader@example.test",
   );
-  const leaderForm=page.locator('.hc-leadership form');
-  await leaderForm.locator('select').nth(0).selectOption('cell_leader');
-  await leaderForm.locator('select').nth(1).selectOption(area.id);
-  await leaderForm.locator('select').nth(2).selectOption(cell.id);
-  page.once("dialog", (d) => d.accept());
-  // The bundled browser transport omits Origin; supply the exact local test server origin.
-  await page.route("**/api/home-cell/leaders", async (route) =>
-    route.continue({
-      headers: {
-        ...route.request().headers(),
-        origin: "http://localhost:" + appPort,
-      },
-    }),
-  );
+  await page.getByRole("button", { name: "Continue to role" }).click();
   await page
     .getByRole("button", { name: "Create / assign leader", exact: true })
     .click();
   await page
+    .getByRole("button", { name: "Use existing account", exact: true })
+    .click();
+  await page
     .getByRole("status")
     .filter({ hasText: "Leadership role added" })
-    .waitFor({ state: "visible", timeout: 15000 });
+    .waitFor();
   assert.equal(existingLeaderWrites.length, 1);
   assert.equal(
     existingLeaderWrites[0].p_data.user_id,
     "00000000-0000-4000-8000-000000000099",
   );
   assert.equal(inviteCalls, 0);
-  console.log(
-    "PASS existing-account leader creation reuses original user ID without sending invitation",
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage Known Leader", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Reassign", exact: true }).click();
+  await page
+    .getByLabel("Leadership role", { exact: true })
+    .selectOption("area_leader");
+  await page.getByLabel("Area", { exact: true }).selectOption(area.id);
+  await page
+    .getByLabel("Reason for this change")
+    .fill("Reassign after leadership review");
+  await page.route(
+    "**/api/home-cell/leaders/action",
+    (route) =>
+      route.fulfill({ status: 409, json: { message: "HCO_SCOPE_DENIED" } }),
+    { times: 1 },
   );
-  await page.getByText('Kevin Iwuji Phone number: 07032621020',{exact:false}).waitFor();
-  await page.getByRole('button',{name:'Create / assign login',exact:true}).click();
-  assert.equal(await page.getByLabel('Phone number',{exact:true}).inputValue(),' +2347032621020'.trim());
-  await page.route("**/api/home-cell/contacts**",async route=>route.continue({headers:{...route.request().headers(),origin}}));
-  await page.getByRole('button',{name:'Edit details',exact:true}).click();
-  await page.locator('form').filter({has:page.getByRole('button',{name:'Save directory details',exact:true})}).locator('textarea').first().fill('Kevin Iwuji updated 07032621020');
-  await page.getByRole('button',{name:'Save directory details',exact:true}).click();
-  await page.getByText('Directory details saved.',{exact:true}).waitFor();
-  assert.equal(directoryContact.leader_details,'Kevin Iwuji updated 07032621020');
-  console.log('PASS editable source contacts and create-login prefill');
-  await page.goto(origin+'/home-cell/members');
-  await page.route('**/api/home-cell/onboarding**',async route=>route.continue({headers:{...route.request().headers(),origin}}));
-  await page.route('**/api/home-cell/transfers',async route=>route.continue({headers:{...route.request().headers(),origin}}));
-  const onboarding=page.locator('section').filter({has:page.getByRole('heading',{name:'Add / Assign Home Cell Members',exact:true})}).last();
-  await page.getByLabel('Find member by name, phone or email',{exact:true}).fill('Existing');
-  await page.getByRole('button',{name:'Search members',exact:true}).click();
-  await page.getByRole('button',{name:'Select this member',exact:true}).click();
-  await page.getByRole('button',{name:'Preview assignment / import',exact:true}).click();
-  await onboarding.getByText('Transfer approval required. Current cell stays unchanged.',{exact:true}).waitFor();
+  await page.getByRole("button", { name: "Save reassignment" }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "cannot assign leadership outside" })
+    .waitFor();
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path: process.env.HCO_SCREENSHOT_DIR + "/leadership-error-popup.png",
+    });
+  await page.getByRole("button", { name: "Got it", exact: true }).click();
+  assert.equal(
+    await page.getByLabel("Reason for this change").inputValue(),
+    "Reassign after leadership review",
+  );
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path: process.env.HCO_SCREENSHOT_DIR + "/leadership-reassign-dialog.png",
+    });
+  await page.getByRole("button", { name: "Save reassignment" }).click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "leadership change" })
+    .waitFor();
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Manage Known Leader", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Password & access", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Generate replacement password", exact: true })
+    .click();
+  await page
+    .getByLabel("Reason for this change")
+    .fill("Original password was not saved");
+  await page.getByRole("checkbox").check();
+  await page
+    .getByRole("button", { name: "Generate temporary password", exact: true })
+    .click();
+  await page
+    .getByRole("heading", { name: "Login details are ready" })
+    .waitFor();
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path:
+        process.env.HCO_SCREENSHOT_DIR + "/leadership-password-handover.png",
+    });
+  assert(
+    await page
+      .getByRole("button", { name: "Done, return to accounts" })
+      .isDisabled(),
+  );
+  const replacement = await page
+    .getByLabel("Temporary password", { exact: true })
+    .inputValue();
+  assert(replacement.length >= 24);
+  assert.equal(users.get("known.leader@example.test").password, replacement);
+  assert.equal(
+    users.get("known.leader@example.test").app_metadata
+      .hco_password_change_required,
+    true,
+  );
+  await page.getByRole("button", { name: "Show", exact: true }).click();
+  assert.equal(
+    await page
+      .getByLabel("Temporary password", { exact: true })
+      .getAttribute("type"),
+    "text",
+  );
+  await page.keyboard.press("Escape");
+  assert(
+    await page
+      .getByRole("heading", { name: "Login details are ready" })
+      .isVisible(),
+  );
+  const storage = await page.evaluate(() =>
+    JSON.stringify({
+      local: { ...localStorage },
+      session: { ...sessionStorage },
+    }),
+  );
+  assert(!storage.includes(replacement));
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Done, return to accounts" }).click();
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const lightToggle = page.getByRole("button", {
+    name: "Switch to light mode",
+    exact: true,
+  });
+  if (await lightToggle.count()) await lightToggle.click();
+  await page.evaluate(() => {
+    document.activeElement instanceof HTMLElement &&
+      document.activeElement.blur();
+    window.scrollTo(0, 0);
+  });
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path: process.env.HCO_SCREENSHOT_DIR + "/leadership-accounts-desktop.png",
+      fullPage: true,
+    });
+  await page.setViewportSize({ width: 390, height: 844 });
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path: process.env.HCO_SCREENSHOT_DIR + "/leadership-accounts-mobile.png",
+      fullPage: true,
+    });
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  await page
+    .getByRole("button", { name: "Church directory", exact: true })
+    .click();
+  await page
+    .getByText("Kevin Iwuji Phone number: 07032621020", { exact: false })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Create / assign login", exact: true })
+    .click();
+  assert.equal(
+    await page.getByLabel("Phone number", { exact: true }).inputValue(),
+    "+2347032621020",
+  );
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.route("**/api/home-cell/contacts**", async (route) =>
+    route.continue({ headers: { ...route.request().headers(), origin } }),
+  );
+  await page.getByRole("button", { name: "Edit details", exact: true }).click();
+  await page
+    .locator("form")
+    .filter({
+      has: page.getByRole("button", {
+        name: "Save directory details",
+        exact: true,
+      }),
+    })
+    .locator("textarea")
+    .first()
+    .fill("Kevin Iwuji updated 07032621020");
+  await page
+    .getByRole("button", { name: "Save directory details", exact: true })
+    .click();
+  await page.getByText("Directory details saved.", { exact: true }).waitFor();
+  assert.equal(
+    directoryContact.leader_details,
+    "Kevin Iwuji updated 07032621020",
+  );
+  await page.getByRole("button", { name: "Done", exact: true }).click();
+  console.log(
+    "PASS clean grouped account list, create wizard preserves contact draft, existing-account popup, reassignment, password replacement, handover acknowledgement, no browser password storage, mobile layout and editable source contacts",
+  );
+  await page.route(
+    "**/api/home-cell/audit?*",
+    (route) =>
+      route.fulfill({
+        status: 503,
+        json: { message: "Activity history could not load." },
+      }),
+    { times: 1 },
+  );
+  await page.getByRole("button", { name: "Activity log", exact: true }).click();
+  await page
+    .getByRole("alert")
+    .filter({ hasText: "Activity history could not load" })
+    .waitFor();
+  await page.getByRole("button", { name: "Got it", exact: true }).click();
+  assert.equal(
+    await page.getByText("No recorded history yet.", { exact: true }).count(),
+    0,
+  );
+  await page
+    .getByText("Activity log unavailable. Reopen this tab to retry.", {
+      exact: true,
+    })
+    .waitFor();
+  console.log(
+    "PASS activity failures use a popup and are not presented as an empty audit history",
+  );
+  await page.goto(origin + "/home-cell/members");
+  await page.route("**/api/home-cell/onboarding**", async (route) =>
+    route.continue({ headers: { ...route.request().headers(), origin } }),
+  );
+  await page.route("**/api/home-cell/transfers", async (route) =>
+    route.continue({ headers: { ...route.request().headers(), origin } }),
+  );
+  const onboarding = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Add / Assign Home Cell Members",
+        exact: true,
+      }),
+    })
+    .last();
+  await page
+    .getByLabel("Find member by name, phone or email", { exact: true })
+    .fill("Existing");
+  await page
+    .getByRole("button", { name: "Search members", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Select this member", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Preview assignment / import", exact: true })
+    .click();
+  await onboarding
+    .getByText("Transfer approval required. Current cell stays unchanged.", {
+      exact: true,
+    })
+    .waitFor();
   await onboarding.locator('input[type="checkbox"]').nth(1).check();
   await onboarding.locator('input[type="checkbox"]').nth(2).check();
-  await onboarding.locator('textarea').fill('Member requests a closer fellowship');
-  await page.getByRole('button',{name:'Save included rows',exact:true}).click();
-  await onboarding.getByRole('status').waitFor();
-  assert.equal(onboardingWrites[0].rows[0].existing_id,onboardingRoster[0].id);
-  assert.equal(onboardingWrites[0].request_transfers,true);
-  const inbox=page.locator('#member-transfer-inbox');
-  await inbox.getByText('Existing Onboard Member',{exact:true}).waitFor();
-  await inbox.locator('textarea').fill('Approved nearer fellowship');
-  page.once('dialog',d=>d.accept());
-  await inbox.getByRole('button',{name:'Approve move',exact:true}).click();
-  await inbox.getByText('Move approved',{exact:false}).waitFor();
-  assert.equal(transferDecisions[0].p_decision,'moved');
-  await page.getByRole('button',{name:'Add new member',exact:true}).click();
-  await onboarding.getByLabel('Other names',{exact:true}).fill('Form');
-  await onboarding.getByLabel('Surname',{exact:true}).fill('Onboard');
-  await onboarding.getByLabel('Phone',{exact:true}).fill('08090011224');
-  await page.getByRole('button',{name:'Preview assignment / import',exact:true}).click();
-  await onboarding.getByText('Create a new-member record and assign this home cell.',{exact:true}).waitFor();
+  await onboarding
+    .locator("textarea")
+    .fill("Member requests a closer fellowship");
+  await page
+    .getByRole("button", { name: "Save included rows", exact: true })
+    .click();
+  await onboarding.getByRole("status").waitFor();
+  assert.equal(onboardingWrites[0].rows[0].existing_id, onboardingRoster[0].id);
+  assert.equal(onboardingWrites[0].request_transfers, true);
+  const inbox = page.locator("#member-transfer-inbox");
+  await inbox.getByText("Existing Onboard Member", { exact: true }).waitFor();
+  await inbox.locator("textarea").fill("Approved nearer fellowship");
+  page.once("dialog", (d) => d.accept());
+  await inbox
+    .getByRole("button", { name: "Approve move", exact: true })
+    .click();
+  await inbox.getByText("Move approved", { exact: false }).waitFor();
+  assert.equal(transferDecisions[0].p_decision, "moved");
+  await page
+    .getByRole("button", { name: "Add new member", exact: true })
+    .click();
+  await onboarding.getByLabel("Other names", { exact: true }).fill("Form");
+  await onboarding.getByLabel("Surname", { exact: true }).fill("Onboard");
+  await onboarding.getByLabel("Phone", { exact: true }).fill("08090011224");
+  await page
+    .getByRole("button", { name: "Preview assignment / import", exact: true })
+    .click();
+  await onboarding
+    .getByText("Create a new-member record and assign this home cell.", {
+      exact: true,
+    })
+    .waitFor();
   await onboarding.locator('input[type="checkbox"]').last().check();
-  await page.getByRole('button',{name:'Save included rows',exact:true}).click();
-  await onboarding.getByRole('status').waitFor();assert.equal(onboardingWrites[1].rows[0].phone,'+2348090011224');
-  await page.getByRole('button',{name:'Import CSV',exact:true}).click();
-  await onboarding.locator('input[type="file"]').setInputFiles({name:'members.csv',mimeType:'text/csv',buffer:Buffer.from('first,last,phone,email_opt_in,sms_opt_in\nCSV,Onboard,08090011225,false,false\n')});
-  await onboarding.getByText('members.csv: 1 rows loaded.',{exact:true}).waitFor();
-  await page.getByRole('button',{name:'Preview assignment / import',exact:true}).click();
-  await onboarding.getByText('Create a new-member record and assign this home cell.',{exact:true}).waitFor();
-  await page.setViewportSize({width:390,height:950});
-  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  if(process.env.HCO_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.HCO_SCREENSHOT_DIR,'member-onboarding-mobile.png'),fullPage:true});
+  await page
+    .getByRole("button", { name: "Save included rows", exact: true })
+    .click();
+  await onboarding.getByRole("status").waitFor();
+  assert.equal(onboardingWrites[1].rows[0].phone, "+2348090011224");
+  await page.getByRole("button", { name: "Import CSV", exact: true }).click();
+  await onboarding.locator('input[type="file"]').setInputFiles({
+    name: "members.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      "first,last,phone,email_opt_in,sms_opt_in\nCSV,Onboard,08090011225,false,false\n",
+    ),
+  });
+  await onboarding
+    .getByText("members.csv: 1 rows loaded.", { exact: true })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Preview assignment / import", exact: true })
+    .click();
+  await onboarding
+    .getByText("Create a new-member record and assign this home cell.", {
+      exact: true,
+    })
+    .waitFor();
+  await page.setViewportSize({ width: 390, height: 950 });
+  assert(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  );
+  if (process.env.HCO_SCREENSHOT_DIR)
+    await page.screenshot({
+      path: path.join(
+        process.env.HCO_SCREENSHOT_DIR,
+        "member-onboarding-mobile.png",
+      ),
+      fullPage: true,
+    });
   await onboarding.locator('input[type="checkbox"]').last().check();
-  await page.getByRole('button',{name:'Save included rows',exact:true}).click();
-  await onboarding.getByRole('status').waitFor();assert.equal(onboardingWrites[2].source,'csv');assert.equal(onboardingWrites[2].rows[0].sms_opt_in,false);
-  assert.equal(errors.length,0);
-  console.log('PASS existing member reuse, conflict submission, dashboard decision, form onboarding, CSV preview/save and mobile layout');
+  await page
+    .getByRole("button", { name: "Save included rows", exact: true })
+    .click();
+  await onboarding.getByRole("status").waitFor();
+  assert.equal(onboardingWrites[2].source, "csv");
+  assert.equal(onboardingWrites[2].rows[0].sms_opt_in, false);
+  assert.equal(errors.length, 0);
+  console.log(
+    "PASS existing member reuse, conflict submission, dashboard decision, form onboarding, CSV preview/save and mobile layout",
+  );
   // Exercise real route handlers with mocked Supabase auth, never a live project.
-  const createdResponse=await request('/api/home-cell/leaders',{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({phone:'08031234567',full_name:'Phone leader',role:'cell_leader',area_id:area.id,cell_id:cell.id})});
-  assert.equal(createdResponse.status,200);
-  assert.match(createdResponse.headers.get('cache-control'),/no-store/);
-  const created=await createdResponse.json();assert(created.temporary_password.length>=24);assert.equal(created.login,'+2348031234567');assert.equal(inviteCalls,0);
-  const post=async(path,body)=>request(path,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const createdUser=[...users.values()].find(u=>u.id===created.user_id);
-  assert(!createdUser.phone);assert.match(createdUser.email,/@home-cell\.invalid$/);
-  assert.equal(phoneUsernames.get('+2348031234567'),created.user_id);
+  const createdResponse = await request("/api/home-cell/leaders", {
+    method: "POST",
+    headers: { Origin: origin, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      phone: "08031234567",
+      full_name: "Phone leader",
+      role: "cell_leader",
+      area_id: area.id,
+      cell_id: cell.id,
+    }),
+  });
+  assert.equal(createdResponse.status, 200);
+  assert.match(createdResponse.headers.get("cache-control"), /no-store/);
+  const created = await createdResponse.json();
+  assert(created.temporary_password.length >= 24);
+  assert.equal(created.login, "+2348031234567");
+  assert.equal(inviteCalls, 0);
+  const post = async (path, body) =>
+    request(path, {
+      method: "POST",
+      headers: { Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  const createdUser = [...users.values()].find((u) => u.id === created.user_id);
+  assert(!createdUser.phone);
+  assert.match(createdUser.email, /@home-cell\.invalid$/);
+  assert.equal(phoneUsernames.get("+2348031234567"), created.user_id);
   // Simulate an existing v3.2 native-phone account, with the phone provider disabled.
-  const legacy={id:'00000000-0000-4000-8000-000000000077',phone:'2347037619850',password:'Legacy-password-123!',app_metadata:{hco_password_change_required:true}};
-  users.set('legacy',legacy);phoneUsernames.set('+2347037619850',legacy.id);
-  const repaired=await post('/api/home-cell/leaders/phone',{assignment_id:'legacy-phone-assignment',user_id:created.user_id,reason:'Repair existing phone account'});
-  assert.equal(repaired.status,200);assert.equal(legacy.id,'00000000-0000-4000-8000-000000000077');assert.equal(legacy.password,'Legacy-password-123!');assert.match(legacy.email,/@home-cell\.invalid$/);
-  const repairedAgain=await post('/api/home-cell/leaders/phone',{assignment_id:'legacy-phone-assignment',reason:'Retry repair safely'});assert.equal(repairedAgain.status,200);
+  const legacy = {
+    id: "00000000-0000-4000-8000-000000000077",
+    phone: "2347037619850",
+    password: "Legacy-password-123!",
+    app_metadata: { hco_password_change_required: true },
+  };
+  users.set("legacy", legacy);
+  phoneUsernames.set("+2347037619850", legacy.id);
+  const repaired = await post("/api/home-cell/leaders/phone", {
+    assignment_id: "legacy-phone-assignment",
+    user_id: created.user_id,
+    reason: "Repair existing phone account",
+  });
+  assert.equal(repaired.status, 200);
+  assert.equal(legacy.id, "00000000-0000-4000-8000-000000000077");
+  assert.equal(legacy.password, "Legacy-password-123!");
+  assert.match(legacy.email, /@home-cell\.invalid$/);
+  const repairedAgain = await post("/api/home-cell/leaders/phone", {
+    assignment_id: "legacy-phone-assignment",
+    reason: "Retry repair safely",
+  });
+  assert.equal(repairedAgain.status, 200);
   jar.clear();
-  const legacyLogin=await post('/api/home-cell/login',{identifier:'07037619850',password:legacy.password});assert.equal(legacyLogin.status,200);
-  assert.equal((await legacyLogin.json()).next,'/home-cell/activate?temporary=1');
+  const legacyLogin = await post("/api/home-cell/login", {
+    identifier: "07037619850",
+    password: legacy.password,
+  });
+  assert.equal(legacyLogin.status, 200);
+  assert.equal(
+    (await legacyLogin.json()).next,
+    "/home-cell/activate?temporary=1",
+  );
   jar.clear();
-  const signed=await post('/api/home-cell/login',{identifier:'0803 123 4567',password:created.temporary_password});
-  assert.equal(signed.status,200);assert.equal((await signed.json()).next,'/home-cell/activate?temporary=1');
-  assert.equal((await request('/api/home-cell/leaders')).status,403);
-  const blockedPage=await request('/home-cell');assert.match(blockedPage.headers.get('location'),/activate/);
-  const retained=await post('/api/home-cell/activate',{password:created.temporary_password});assert.equal(retained.status,400);
-  const changed=await post('/api/home-cell/activate',{password:'My-personal-password-987!'});assert.equal(changed.status,200);
-  assert.equal((await request('/api/home-cell/leaders')).status,200);
-  const loginAgain=await post('/api/home-cell/login',{identifier:'+2348031234567',password:'My-personal-password-987!'});
-  assert.equal(loginAgain.status,200);assert.equal((await loginAgain.json()).next,'/home-cell');
-  assert.equal((await post('/api/home-cell/login',{identifier:'08031234567',password:created.temporary_password})).status,401);
-  assert.equal(nativePhoneAttempts,0);
-  console.log('PASS SMS-free phone usernames, legacy repair preserving ID/password, phone-only creation, no-cache credentials, normalized login, mandatory password change, access gating and old-password rejection');
+  const signed = await post("/api/home-cell/login", {
+    identifier: "0803 123 4567",
+    password: created.temporary_password,
+  });
+  assert.equal(signed.status, 200);
+  assert.equal((await signed.json()).next, "/home-cell/activate?temporary=1");
+  assert.equal((await request("/api/home-cell/leaders")).status, 403);
+  const blockedPage = await request("/home-cell");
+  assert.match(blockedPage.headers.get("location"), /activate/);
+  const retained = await post("/api/home-cell/activate", {
+    password: created.temporary_password,
+  });
+  assert.equal(retained.status, 400);
+  const changed = await post("/api/home-cell/activate", {
+    password: "My-personal-password-987!",
+  });
+  assert.equal(changed.status, 200);
+  assert.equal((await request("/api/home-cell/leaders")).status, 200);
+  const loginAgain = await post("/api/home-cell/login", {
+    identifier: "+2348031234567",
+    password: "My-personal-password-987!",
+  });
+  assert.equal(loginAgain.status, 200);
+  assert.equal((await loginAgain.json()).next, "/home-cell");
+  assert.equal(
+    (
+      await post("/api/home-cell/login", {
+        identifier: "08031234567",
+        password: created.temporary_password,
+      })
+    ).status,
+    401,
+  );
+  assert.equal(nativePhoneAttempts, 0);
+  console.log(
+    "PASS SMS-free phone usernames, legacy repair preserving ID/password, phone-only creation, no-cache credentials, normalized login, mandatory password change, access gating and old-password rejection",
+  );
 
-  rateMode='deny';
-  const denied=await post('/api/home-cell/login',{identifier:'08031234567',password:'wrong'});
-  assert.equal(denied.status,429); assert.equal(denied.headers.get('retry-after'),'300');
-  assert.match(denied.headers.get('x-request-id'),/^[a-f0-9-]{36}$/);
-  assert.match(denied.headers.get('cache-control'),/no-store/);
-  assert.equal((await post('/api/home-cell/recover',{email:'someone@example.test'})).status,429);
-  rateMode='unavailable';
-  assert.equal((await post('/api/home-cell/login',{identifier:'08031234567',password:'wrong'})).status,503);
-  rateMode='allow';
-  const oversized=await post('/api/home-cell/login',{identifier:'x'.repeat(5000),password:'wrong'});
-  assert.equal(oversized.status,413);
-  assert.equal((await post('/api/home-cell/login',null)).status,400);
-  assert(ratePolicies.every(p=>/^[a-f0-9]{64}$/.test(p.p_bucket)));
-  const secured=await request('/home-cell/login');
-  assert.equal(secured.headers.get('x-content-type-options'),'nosniff');
-  assert.match(secured.headers.get('content-security-policy'),/frame-ancestors 'none'/);
-  console.log('PASS HTTP throttling, Retry-After, fail-closed protection, bounded authentication payloads, request IDs, private caching and security headers');
-
+  await login();
+  const emailCreated = await post("/api/home-cell/leaders", {
+    email: "new.leader@gmail.com",
+    full_name: "Gmail Leader",
+    role: "cell_leader",
+    area_id: area.id,
+    cell_id: cell.id,
+  });
+  assert.equal(emailCreated.status, 200);
+  const gmail = await emailCreated.json();
+  assert(gmail.temporary_password.length >= 24);
+  assert.equal(gmail.login, "new.leader@gmail.com");
+  const gmailSigned = await post("/api/home-cell/login", {
+    identifier: "new.leader@gmail.com",
+    password: gmail.temporary_password,
+  });
+  assert.equal(gmailSigned.status, 200);
+  assert.equal(
+    (await gmailSigned.json()).next,
+    "/home-cell/activate?temporary=1",
+  );
+  await login();
+  const gmailAssignment = leadershipAssignments.find(
+    (x) => x.user_id === gmail.user_id,
+  );
+  testNonAdmin = true;
+  assert.equal(
+    (
+      await post("/api/home-cell/leaders/password", {
+        assignment_id: gmailAssignment.id,
+        request_id: randomUUID(),
+        reason: "Must not be authorized",
+        confirm_shared_password: true,
+      })
+    ).status,
+    403,
+  );
+  testNonAdmin = false;
+  assert.equal(
+    (
+      await post("/api/home-cell/leaders/password", {
+        assignment_id: gmailAssignment.id,
+        request_id: randomUUID(),
+        reason: "Missing explicit confirmation",
+      })
+    ).status,
+    400,
+  );
+  passwordProviderFailure = true;
+  const uncertain = await post("/api/home-cell/leaders/password", {
+    assignment_id: gmailAssignment.id,
+    request_id: randomUUID(),
+    reason: "Simulated interrupted provider update",
+    confirm_shared_password: true,
+  });
+  assert.equal(uncertain.status, 503);
+  assert(!(await uncertain.json()).temporary_password);
+  passwordProviderFailure = false;
+  passwordAuditFailure = true;
+  const audited = await post("/api/home-cell/leaders/password", {
+    assignment_id: gmailAssignment.id,
+    request_id: randomUUID(),
+    reason: "Simulate delayed completion audit",
+    confirm_shared_password: true,
+  });
+  assert.equal(audited.status, 200);
+  const recovered = await audited.json();
+  assert(recovered.temporary_password);
+  assert.equal(recovered.audit_pending, true);
+  passwordAuditFailure = false;
+  console.log(
+    "PASS Gmail new accounts receive dashboard passwords; coordinator reset denied; explicit acknowledgement required; provider failure exposes no credentials; saved password remains recoverable when completion audit fails",
+  );
+  rateMode = "deny";
+  const denied = await post("/api/home-cell/login", {
+    identifier: "08031234567",
+    password: "wrong",
+  });
+  assert.equal(denied.status, 429);
+  assert.equal(denied.headers.get("retry-after"), "300");
+  assert.match(denied.headers.get("x-request-id"), /^[a-f0-9-]{36}$/);
+  assert.match(denied.headers.get("cache-control"), /no-store/);
+  assert.equal(
+    (await post("/api/home-cell/recover", { email: "someone@example.test" }))
+      .status,
+    429,
+  );
+  rateMode = "unavailable";
+  assert.equal(
+    (
+      await post("/api/home-cell/login", {
+        identifier: "08031234567",
+        password: "wrong",
+      })
+    ).status,
+    503,
+  );
+  rateMode = "allow";
+  const oversized = await post("/api/home-cell/login", {
+    identifier: "x".repeat(5000),
+    password: "wrong",
+  });
+  assert.equal(oversized.status, 413);
+  assert.equal((await post("/api/home-cell/login", null)).status, 400);
+  assert(ratePolicies.every((p) => /^[a-f0-9]{64}$/.test(p.p_bucket)));
+  const secured = await request("/home-cell/login");
+  assert.equal(secured.headers.get("x-content-type-options"), "nosniff");
+  assert.match(
+    secured.headers.get("content-security-policy"),
+    /frame-ancestors 'none'/,
+  );
+  console.log(
+    "PASS HTTP throttling, Retry-After, fail-closed protection, bounded authentication payloads, request IDs, private caching and security headers",
+  );
 } finally {
   await browser.close();
   child.kill();

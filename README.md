@@ -1,3 +1,7 @@
+# Latest update: v3.6 Leadership accounts
+
+Read HOME_CELL_V3_6_LEADERSHIP_ACCOUNTS.md. Apply the new additive SQL 016 for replacement passwords. Keep your working Netlify variables and local environment.
+
 # Latest fix: v3.5.1 Netlify public origin
 
 Read HOME_CELL_V3_5_1_NETLIFY_ORIGIN.md before deploying this fix.

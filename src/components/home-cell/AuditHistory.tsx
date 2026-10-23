@@ -25,13 +25,20 @@ export default function AuditHistory({
   meeting,
   scope,
   revision = 0,
+  onError,
 }: {
   meeting?: string;
   scope?: string;
   revision?: number;
+  onError?: (message: string) => void;
 }) {
   const [items, setItems] = useState<Event[]>([]),
     [error, setError] = useState("");
+  useEffect(() => {
+    if (error && onError) {
+      onError(error);
+    }
+  }, [error, onError]);
   useEffect(() => {
     let active = true;
     setError("");
@@ -62,9 +69,14 @@ export default function AuditHistory({
           {meeting ? "Report Revision History" : "Leadership Audit History"}
         </h2>
       </header>
-      {error && (
+      {error && !onError && (
         <p role="alert" className="hc-alert">
           {error}
+        </p>
+      )}
+      {error && onError && (
+        <p className="hc-muted">
+          Activity log unavailable. Reopen this tab to retry.
         </p>
       )}
       {!items.length && !error && (

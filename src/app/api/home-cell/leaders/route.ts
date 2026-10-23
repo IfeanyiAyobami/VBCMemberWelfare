@@ -37,7 +37,7 @@ async function handleGET() {
     const userIds = [...new Set((allowed || []).map((x) => x.user_id))];
     const identities: Record<
       string,
-      { email: string; phone: string; name: string; lastSignIn: string | null }
+      { email: string; phone: string; name: string; lastSignIn: string | null; passwordChangeRequired: boolean }
     > = {};
     for (let i = 0; i < userIds.length; i += 10) {
       await Promise.all(
@@ -52,6 +52,7 @@ async function handleGET() {
                 data.user.user_metadata?.full_name || publicLoginEmail(data.user.email) || data.user.app_metadata?.hco_phone_username || data.user.phone || "Leader",
               ),
               lastSignIn: data.user.last_sign_in_at || null,
+              passwordChangeRequired: data.user.app_metadata?.hco_password_change_required === true,
             };
         }),
       );
@@ -74,6 +75,8 @@ async function handleGET() {
           ?.suspended_at,
       })),
       churchAdmin: a.churchAdmin,
+      actorId: a.user.id,
+      limit: 500,
     });
   } catch {
     return reply({ message: "Access denied" }, { status: 403 });
