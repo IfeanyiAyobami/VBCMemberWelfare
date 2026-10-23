@@ -77,3 +77,7 @@ Next.js 16.4.1 and sharp 0.35.5 installed. TypeScript and the production build p
 The new CI intentionally runs domain/database/production browser checks explicitly. The historical broad `npm test` preview snapshot suite is not claimed passing or replaced by these checks; it has a pre-existing overview assertion mismatch. Gateway tests were aligned with existing email/SMS ON defaults and optional-category OFF defaults, while delivery remains independently disabled. An absent optional Gateway email now disables that unavailable email channel rather than rejecting a valid public payload. This is a compatibility fix, not a new visitor journey.
 
 See HOME_CELL_V3_5_HARDENING.md for migration order, operating limits and provider-managed controls. Live backups, alerts, recovery timing and hosted SQL remain unverified and unapplied.
+
+## v3.5.1 Netlify public origin
+
+Public origin selection is tested for localhost, proxy mismatch, production, preview isolation, missing/foreign Origin, unexpected ports, malformed URL configuration and fail-closed behavior. Production HTTP origin regression and production build passed. No SQL change; live Netlify deployment/settings must be updated by the operator. See HOME_CELL_V3_5_1_NETLIFY_ORIGIN.md.

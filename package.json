@@ -26,7 +26,7 @@
     "test:home-cell:browser": "node tests/home-cell-browser.mjs",
     "test:home-cell:accounts": "node --experimental-strip-types tests/home-cell-account-validation.mjs",
     "test:home-cell:onboarding": "node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/home-cell-onboarding-validation.mjs",
-    "test:reliability": "node --experimental-strip-types tests/reliability.mjs && node tests/rate-limits.mjs"
+    "test:reliability": "node --experimental-strip-types tests/origin-validation.mjs && node --experimental-strip-types tests/reliability.mjs && node tests/rate-limits.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

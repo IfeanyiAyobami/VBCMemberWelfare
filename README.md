@@ -1,3 +1,7 @@
+# Latest fix: v3.5.1 Netlify public origin
+
+Read HOME_CELL_V3_5_1_NETLIFY_ORIGIN.md before deploying this fix.
+
 # Latest update: Home Cell v3.5 hardening
 
 Read [HOME_CELL_V3_5_HARDENING.md](HOME_CELL_V3_5_HARDENING.md). Apply additive SQL 015 before using Home Cell login/recovery in this version. Next.js is pinned to 16.4.1. Keep your existing server environment values.

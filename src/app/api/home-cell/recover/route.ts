@@ -1,3 +1,4 @@
+import { publicOrigin } from "@/lib/auth/origin";
 import { withRoute } from "@/lib/home-cell/route";
 import { readJson, PayloadError } from "@/lib/reliability/json";
 import { authRateLimit } from "@/lib/home-cell/rate-limit";
@@ -21,7 +22,7 @@ async function handlePOST(req: NextRequest) {
     const c = await createClient();
     if (!b.email.trim().toLowerCase().endsWith("@home-cell.invalid")) {
       const { error } = await c.auth.resetPasswordForEmail(b.email.trim(), {
-        redirectTo: req.nextUrl.origin + "/home-cell/activate",
+        redirectTo: publicOrigin(req.nextUrl.origin)! + "/home-cell/activate",
       });
       if (error) return authJSON({ message: 'Password recovery is temporarily unavailable. Please try again later.' }, error.status === 429 ? 429 : 503);
     }

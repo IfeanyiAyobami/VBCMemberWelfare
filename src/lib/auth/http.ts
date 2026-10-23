@@ -1,3 +1,4 @@
+import { acceptsOrigin } from "./origin";
 import { NextRequest, NextResponse } from "next/server";
 import { isCareRoute } from "@/lib/routes";
 
@@ -19,7 +20,7 @@ export function authJSON(body: unknown, status = 200) {
 
 export function hasSameOrigin(request: NextRequest) {
   const origin = request.headers.get("origin");
-  return !!origin && origin === request.nextUrl.origin;
+  return acceptsOrigin(origin, request.nextUrl.origin);
 }
 
 export function safeNextPath(value: unknown) {
