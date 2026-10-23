@@ -33,8 +33,8 @@ check(
     "celebrations_opt_in",
     "programmes_opt_in",
     "newsletters_opt_in",
-  ].every((k) => v.guest[k] === false),
-  "No inferred sending permissions",
+  ].every((k) => v.guest[k] === ["email_opt_in", "sms_opt_in"].includes(k)),
+  "Gateway retains existing email/SMS defaults and optional category opt-outs",
 );
 check(
   v.guest.birthday_month === null && v.guest.anniversary_day === null,
@@ -56,10 +56,9 @@ const empty = {
   discovery_details: "",
   heard_about: "",
 };
-check(
-  validateGateway(empty, p.submission_id).ok,
-  "Optional empty strings accepted",
-);
+const withoutEmail = validateGateway(empty, p.submission_id);
+check(withoutEmail.ok && withoutEmail.guest.email_opt_in === false,
+  "Optional email accepted without enabling an absent email channel");
 for (const patch of [
   { submission_id: "bad" },
   { contact_consent: true },

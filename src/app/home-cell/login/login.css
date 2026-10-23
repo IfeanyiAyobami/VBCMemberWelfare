@@ -1,0 +1,399 @@
+.hco-login {
+  --hcl-ink: #18243d;
+  min-height: 100svh;
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  background: #f4f6fb;
+  color: var(--hcl-ink);
+  font-family: Poppins, Arial, sans-serif;
+}
+.hco-login .hcl-story {
+  display: flex;
+  flex-direction: column;
+  padding: 48px clamp(28px, 5vw, 88px);
+  background:
+    radial-gradient(ellipse at 0 100%, #17448b66, transparent 65%), #070d4f;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.hcl-brand {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #fff;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+.hcl-brand img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 14px;
+  padding: 7px;
+}
+.hcl-brand small {
+  display: block;
+  color: #bdc9e8;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin-top: 3px;
+}
+.hcl-intro {
+  margin: auto 0;
+  padding: 80px 0;
+}
+.hcl-eyebrow,
+.hcl-kicker {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+}
+.hcl-eyebrow {
+  color: #adcbff;
+  display: inline-block;
+  border-left: 3px solid #f5084c;
+  padding-left: 12px;
+}
+.hco-login h1 {
+  font-family: Anton, Arial, sans-serif;
+  font-size: clamp(42px, 4.5vw, 70px);
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: 0;
+  margin: 24px 0;
+  color: #fff;
+}
+.hcl-intro > p {
+  max-width: 380px;
+  line-height: 1.85;
+  color: #c6d1ed;
+  font-size: 15px;
+}
+.hcl-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 34px;
+}
+.hcl-features span {
+  border: 1px solid #ffffff26;
+  background: #ffffff08;
+  border-radius: 30px;
+  padding: 8px 13px;
+  font-size: 11px;
+}
+.hcl-story footer {
+  font-size: 11px;
+  color: #a8b7dc;
+}
+.hcl-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 56px 24px;
+  gap: 26px;
+}
+.hco-login .hcl-card {
+  width: 100%;
+  max-width: 440px;
+  background: #fff;
+  padding: 40px;
+  border: 1px solid #e2e7f0;
+  border-radius: 24px;
+  box-shadow: 0 18px 65px #070d4f0b;
+  color: #18243d;
+}
+.hcl-kicker {
+  color: #0860d6;
+}
+.hco-login h2 {
+  font-family: Poppins, Arial, sans-serif;
+  color: #111c34;
+  font-size: 29px;
+  line-height: 1.3;
+  margin: 12px 0 10px;
+  letter-spacing: -1px;
+}
+.hcl-card > p {
+  color: #627087;
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 0 0 28px;
+}
+.hcl-card form {
+  display: block;
+}
+.hcl-card label {
+  display: block;
+  color: #24324b;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.hco-login .hcl-card input {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  background: #f9fafc;
+  color: #18243d;
+  border: 1px solid #d6deeb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font:
+    400 14px Poppins,
+    Arial,
+    sans-serif;
+  box-shadow: none;
+  margin: 0 0 22px;
+  outline-offset: 3px;
+}
+.hcl-card input::placeholder {
+  color: #7d889c;
+  opacity: 1;
+}
+.hcl-card input:focus-visible,
+.hcl-card button:focus-visible,
+.hco-login a:focus-visible {
+  outline: 3px solid #639cff;
+  outline-offset: 3px;
+}
+.hcl-password {
+  position: relative;
+}
+.hco-login .hcl-password input {
+  padding-right: 68px;
+}
+.hco-login .hcl-password button {
+  position: absolute;
+  right: 6px;
+  top: 5px;
+  min-height: 40px;
+  min-width: 52px;
+  background: transparent;
+  border: 0;
+  color: #0756bc;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 6px;
+}
+.hco-login .hcl-submit {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 52px;
+  width: 100%;
+  background: #0866f5;
+  color: #fff;
+  border: 0;
+  border-radius: 10px;
+  font:
+    500 13px Poppins,
+    Arial,
+    sans-serif;
+  padding: 14px 18px;
+  box-shadow: 0 6px 16px #0866f526;
+}
+.hcl-submit:hover {
+  filter: brightness(0.94);
+}
+.hcl-submit:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+.hcl-submit span {
+  font-size: 20px;
+}
+.hcl-card .hcl-help {
+  font-size: 11px;
+  text-align: center;
+  margin: 24px 0 20px;
+  color: #627087;
+}
+.hcl-footnote {
+  border-top: 1px solid #e6ebf4;
+  padding-top: 18px;
+  text-align: center;
+  color: #68758b;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.hcl-back {
+  color: #53617a;
+  text-decoration: none;
+  font-size: 12px;
+}
+.hcl-error {
+  background: #fff0f3;
+  border: 1px solid #f6bdcb;
+  color: #9a153a;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  margin: 0 0 16px;
+}
+@media (max-width: 800px) {
+  .hco-login {
+    grid-template-columns: 1fr;
+  }
+  .hco-login .hcl-story {
+    padding: 26px 24px;
+  }
+  .hcl-intro {
+    padding: 32px 0 8px;
+  }
+  .hco-login h1 {
+    font-size: 40px;
+    margin: 18px 0;
+  }
+  .hcl-intro > p {
+    margin-bottom: 8px;
+  }
+  .hcl-features,
+  .hcl-story footer {
+    display: none;
+  }
+  .hcl-entry {
+    padding: 28px 18px 36px;
+  }
+  .hco-login .hcl-card {
+    padding: 28px 24px;
+    border-radius: 18px;
+  }
+  .hcl-brand img {
+    width: 48px;
+    height: 48px;
+  }
+  .hcl-brand {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hco-login * {
+    scroll-behavior: auto;
+  }
+}
+
+/* Match the supplied Member Care reference; use the original uploaded photo. */
+.hco-login {
+  background: #000956;
+  color: #f5f5ff;
+  color-scheme: dark;
+}
+.hco-login .hcl-story {
+  background:
+    linear-gradient(0deg, #000956 0%, #000956ab 44%, #00095635 100%),
+    url("/home-cell/photos/fellowship.jpg") center center/cover;
+}
+.hcl-intro {
+  padding-top: 160px;
+}
+.hcl-brand {
+  position: relative;
+  z-index: 1;
+}
+.hcl-intro h1 {
+  text-transform: uppercase;
+}
+.hcl-intro > p,
+.hcl-brand small,
+.hcl-story footer {
+  color: #d0d0ee;
+}
+.hcl-eyebrow {
+  color: #dbd5ff;
+  border-color: #e51b25;
+}
+.hco-login .hcl-card {
+  background: #0f0f59;
+  border-color: #303077;
+  color: #f5f5ff;
+  box-shadow: 0 20px 65px #00002633;
+}
+.hco-login .hcl-card h2 {
+  color: #f5f5ff;
+  font-family: Anton, Arial, sans-serif;
+  font-weight: 400;
+  text-transform: uppercase;
+  font-size: 34px;
+  letter-spacing: 0;
+}
+.hcl-kicker {
+  color: #b9b9db;
+}
+.hco-login .hcl-card > p,
+.hco-login .hcl-help {
+  color: #b9b9db;
+}
+.hco-login .hcl-card label {
+  color: #f5f5ff;
+}
+.hco-login .hcl-card input {
+  background: #000956;
+  color: #f5f5ff;
+  border-color: #303077;
+}
+.hco-login .hcl-card input::placeholder {
+  color: #aaaad0;
+}
+.hco-login .hcl-password button {
+  color: #d7d0ff;
+}
+.hco-login .hcl-submit {
+  background: #e51b25;
+  box-shadow: none;
+  color: #fff;
+}
+.hco-login .hcl-footnote {
+  border-color: #303077;
+  color: #b9b9db;
+}
+.hco-login .hcl-back {
+  color: #d1c8ff;
+}
+.hco-login .hcl-error {
+  background: #471336;
+  color: #ffd1df;
+  border-color: #86415f;
+}
+.hco-login .hcl-recovery-toggle {
+  background: transparent;
+  border: 0;
+  color: #e0d8ff;
+  padding: 12px 0;
+  font:
+    400 12px Poppins,
+    Arial,
+    sans-serif;
+}
+.hco-login .hcl-card > a {
+  color: #ddd5ff;
+}
+.hco-login :is(input, button, a):focus-visible {
+  outline-color: #b4a6ff;
+}
+@media (max-width: 800px) {
+  .hco-login .hcl-story {
+    background-position: center 35%;
+  }
+  .hcl-intro {
+    padding: 100px 0 12px;
+  }
+  .hcl-intro h1 {
+    font-size: 37px;
+    max-width: 290px;
+  }
+  .hcl-entry {
+    padding-top: 20px;
+  }
+  .hco-login .hcl-card h2 {
+    font-size: 30px;
+  }
+}

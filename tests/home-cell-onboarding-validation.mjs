@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {parseOnboardingCSV,validateOnboardRow} from '../src/lib/home-cell/onboarding.ts';
+const valid=validateOnboardRow({first:'Test',last:'Member',phone:'08031234567',email_opt_in:false,sms_opt_in:false});
+assert.equal(valid.row.phone,'+2348031234567');assert.equal(valid.row.sms_opt_in,false);
+assert.equal(validateOnboardRow({first:'Only',last:'Name'}).row,undefined);
+assert.equal(validateOnboardRow({first:'Test',last:'Member',phone:'not-a-number'}).row,undefined);
+assert.equal(validateOnboardRow({existing_id:'00000000-0000-4000-8000-000000000001'}).row.existing_id,'00000000-0000-4000-8000-000000000001');
+assert.equal(validateOnboardRow({existing_id:'bad'}).row,undefined);
+assert.equal(validateOnboardRow({first:'A',last:'B',phone:'08031234567',sms_opt_in:'yes'}).row,undefined);
+const parsed=parseOnboardingCSV('\uFEFFfirst,last,phone,address\r\nTest,Member,08031234567,"No 1, Road A"\r\n"A ""quoted"" name",Member,08031234568,Street\r\n');
+assert.equal(parsed.length,2);assert.equal(parsed[0].address,'No 1, Road A');assert.equal(parsed[1].first,'A "quoted" name');
+assert.throws(()=>parseOnboardingCSV('first,first\nA,B'),/headers/);
+assert.throws(()=>parseOnboardingCSV('first,last\n"A,B'),/Unclosed/);
+assert.throws(()=>parseOnboardingCSV('first,last\nA,B,C'),/number of fields/);
+assert.throws(()=>parseOnboardingCSV('first,last\n'+Array(101).fill('A,B').join('\n')),/100/);
+assert.equal(validateOnboardRow({first:'A',last:'B',phone:'08031234567',birthday:'02-30'}).row,undefined);
+console.log('PASS 15 member-onboarding and CSV parsing/validation checks');

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isCareRoute } from "@/lib/routes";
 
-export function preventCaching(response: NextResponse) {
+export function preventCaching<T extends Response>(response: T) {
   response.headers.set(
     "Cache-Control",
     "private, no-cache, no-store, must-revalidate, max-age=0",

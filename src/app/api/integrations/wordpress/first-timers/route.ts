@@ -1,3 +1,4 @@
+import { boundedFetch } from "@/lib/reliability/fetch";
 import "server-only";
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
@@ -120,14 +121,11 @@ export async function POST(request: NextRequest) {
   const submissionId = valid.payload.submission_id;
   try {
     const supabase = createClient(url, key, {
+      global: { fetch: boundedFetch },
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
-      },
-      global: {
-        fetch: (input, init) =>
-          fetch(input, { ...init, signal: AbortSignal.timeout(10000) }),
       },
     });
     const { data, error } = await supabase.rpc(

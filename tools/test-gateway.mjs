@@ -4,7 +4,7 @@ import { loadEnvConfig } from "@next/env";
 import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 loadEnvConfig(process.cwd());
-const token = process.env.VBC_MEMBER_CARE_GATEWAY_TOKEN; 
+const token = process.env.VBC_MEMBER_CARE_GATEWAY_TOKEN;
 let url;
 try {
   url = new URL(process.argv[2]);

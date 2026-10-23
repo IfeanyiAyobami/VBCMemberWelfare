@@ -3,7 +3,7 @@
   "version": "0.7.5.1",
   "private": true,
   "type": "module",
-  "description": "Vine Branch Church care dashboard \u2014 First-Timer Gateway v1.1.3 integration",
+  "description": "Vine Branch Church care dashboard — First-Timer Gateway v1.1.3 integration",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -21,22 +21,29 @@
     "test:care-db": "node tests/care-database.mjs",
     "test:guest-db": "node tests/guest-database.mjs",
     "test:gateway": "node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/gateway-validation.mjs",
-    "test:gateway-db": "node tests/gateway-database.mjs"
+    "test:gateway-db": "node tests/gateway-database.mjs",
+    "test:home-cell": "node tests/home-cell-database.mjs",
+    "test:home-cell:browser": "node tests/home-cell-browser.mjs",
+    "test:home-cell:accounts": "node --experimental-strip-types tests/home-cell-account-validation.mjs",
+    "test:home-cell:onboarding": "node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/home-cell-onboarding-validation.mjs",
+    "test:reliability": "node --experimental-strip-types tests/reliability.mjs && node tests/rate-limits.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.3",
-    "next": "16.4.0",
+    "next": "16.4.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "css-tree": "^3.1.0",
     "jsdom": "^27.0.0",
+    "playwright": "^1.64.1",
     "prettier": "^3.6.0",
     "typescript": "~5.9.3"
   }

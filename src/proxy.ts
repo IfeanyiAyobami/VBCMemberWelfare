@@ -1,3 +1,4 @@
+import { boundedFetch } from "@/lib/reliability/fetch";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseConfig } from "@/lib/auth/config";
@@ -8,6 +9,7 @@ export async function proxy(request: NextRequest) {
   const config = getSupabaseConfig();
   if (!config.ready) return response;
   const supabase = createServerClient(config.url, config.key, {
+    global: { fetch: boundedFetch },
     cookieOptions: {
       httpOnly: true,
       sameSite: "lax",

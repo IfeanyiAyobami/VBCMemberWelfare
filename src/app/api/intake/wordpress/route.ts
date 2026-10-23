@@ -1,3 +1,4 @@
+import { boundedFetch } from "@/lib/reliability/fetch";
 import "server-only";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -98,14 +99,11 @@ export async function POST(request: NextRequest) {
   try {
     // Dedicated server client: no staff session and no cookie mixing.
     const supabase = createClient(url, key, {
+      global: { fetch: boundedFetch },
       auth: {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
-      },
-      global: {
-        fetch: (input, init) =>
-          fetch(input, { ...init, signal: AbortSignal.timeout(10000) }),
       },
     });
     const { data, error } = await supabase.rpc("care_record_guest", {

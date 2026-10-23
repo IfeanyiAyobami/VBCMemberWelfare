@@ -1,3 +1,4 @@
+import { boundedFetch } from "@/lib/reliability/fetch";
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
@@ -9,6 +10,7 @@ export async function createClient() {
   const cookieStore = await cookies();
   return createServerClient(config.url, config.key, {
     // This stage uses same-origin server endpoints, not a browser Supabase client.
+    global: { fetch: boundedFetch },
     cookieOptions: {
       httpOnly: true,
       sameSite: "lax",

@@ -1,3 +1,19 @@
+# Latest update: Home Cell v3.5 hardening
+
+Read [HOME_CELL_V3_5_HARDENING.md](HOME_CELL_V3_5_HARDENING.md). Apply additive SQL 015 before using Home Cell login/recovery in this version. Next.js is pinned to 16.4.1. Keep your existing server environment values.
+
+Latest update: [Home Cell v3.4 member onboarding and transfers](HOME_CELL_V3_4_MEMBER_ONBOARDING.md). Apply migration 014.
+
+Latest update: [Home Cell v3.3 phone login](HOME_CELL_V3_3_PHONE_LOGIN.md). Apply migration 013; SMS-provider setup is no longer needed.
+
+Latest update: see [Home Cell v3.2 setup](HOME_CELL_V3_2_SETUP.md) for email/phone login, temporary passwords and migration 012.
+
+> Latest fixes: read **HOME_CELL_ACCOUNT_FORM_FIX.md** for existing-account leader creation, full date filters, retained form details, and starting a fellowship from Visitors. No additional SQL is required.
+
+> Latest visual update: see **HOME_CELL_STYLE_UPDATE.md** for the #000956 navy palette and uploaded photo placements. No additional SQL is required after your successful migration 011.
+
+> Home Cell dashboard/workflow release: start with **HOME_CELL_STAGE3.md**. Run only migration **011** after your already-applied 009/010. Validation is recorded in **HOME_CELL_VALIDATION.md**.
+
 # Vine Branch Member Care — Gateway v1.1.3 integration, v0.6.1
 
 A runnable Next.js frontend of the reviewed Vine Branch Church visitor and member care experience. It uses the church’s navy/red palette, locally bundled Anton/Poppins typography, and the original email artwork from the prototype.

@@ -96,7 +96,9 @@ export function validateGateway(input: unknown, idempotencyKey: string | null) {
   ] as const)
     draft[key] = p[key];
   draft.contact_consent = true;
-  // The single Gateway consent does not supply any of the five sending choices.
+  // Email is optional in the public gateway contract; no address means no email channel.
+  if (!draft.email.trim()) draft.email_opt_in = false;
+  // Retain existing application preference defaults; actual delivery is separately gated.
   const valid = validateGuest(draft);
   if (!valid.ok) return fail(Object.keys(valid.errors)[0]);
   return { ok: true as const, payload: p, guest: guestColumns(valid.value) };

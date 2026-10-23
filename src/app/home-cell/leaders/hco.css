@@ -1,0 +1,147 @@
+.hco {
+  font-family: Poppins, sans-serif;
+  background: #f4f6fb;
+  color: #07144d;
+  min-height: 100vh;
+  padding: clamp(12px, 3vw, 40px);
+}
+.hco * {
+  box-sizing: border-box;
+}
+.hco-hero {
+  background: linear-gradient(105deg, #070d4f, #18236c);
+  color: white;
+  padding: 28px;
+  border-radius: 14px;
+}
+.hco-hero h1 {
+  font:
+    clamp(25px, 3vw, 44px)/1.2 Anton,
+    sans-serif;
+  margin: 12px 0;
+}
+.hco-hero p {
+  margin: 0;
+}
+.hco-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.hco-stats article {
+  background: #101958;
+  color: white;
+  border-radius: 12px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+}
+.hco-stats strong {
+  font-size: 30px;
+}
+.hco-grid {
+  display: grid;
+  grid-template-columns: minmax(270px, 360px) minmax(0, 1fr);
+  gap: 16px;
+}
+.hco-panel {
+  background: white;
+  border-radius: 14px;
+  padding: 20px;
+  min-width: 0;
+}
+.hco-panel h2 {
+  margin-top: 0;
+}
+.hco label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 12px 0;
+}
+.hco input,
+.hco select {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  margin-top: 5px;
+  font: inherit;
+  font-size: 14px;
+}
+.hco button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #0866f5;
+  color: white;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+}
+.hco button:disabled {
+  opacity: 0.5;
+}
+.hco-list {
+  max-height: 65vh;
+  overflow: auto;
+}
+.hco-list article {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 15px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.hco-list small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #64748b;
+}
+.hco-actions {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: end;
+}
+.hco-actions button:nth-child(2) {
+  background: #b91c1c;
+}
+.hco-actions button:nth-child(3) {
+  background: #047857;
+}
+.hco-actions button:nth-child(4) {
+  background: #475569;
+}
+.hco-error {
+  color: #b91c1c;
+}
+@media (max-width: 850px) {
+  .hco-grid {
+    grid-template-columns: 1fr;
+  }
+  .hco-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .hco-list article {
+    display: block;
+  }
+  .hco-actions {
+    justify-content: start;
+    margin-top: 12px;
+  }
+}
+@media (max-width: 420px) {
+  .hco-stats {
+    gap: 8px;
+  }
+  .hco-stats article {
+    padding: 12px;
+  }
+  .hco-hero {
+    padding: 18px;
+  }
+}

@@ -111,8 +111,8 @@ export async function runGatewayIntegration({
       "celebrations_opt_in",
       "programmes_opt_in",
       "newsletters_opt_in",
-    ].every((k) => saved[k] === false),
-    "No sending permission inferred from follow-up consent",
+    ].every((k) => saved[k] === ["email_opt_in", "sms_opt_in"].includes(k)),
+    "Gateway retains existing email/SMS defaults and optional category opt-outs; delivery is separately paused",
   );
   const retry = { ...p, submission_id: randomUUID() };
   setFault("unavailable");
