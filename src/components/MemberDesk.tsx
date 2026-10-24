@@ -38,7 +38,7 @@ const roleLabels = {
   administrator: "Administrator",
   editor: "Editor",
   viewer: "Viewer",
-      followup_worker: "Follow-up Worker",
+  followup_worker: "Follow-up Worker",
 };
 const months = [
   "January",
@@ -440,7 +440,14 @@ export default function MemberDesk({
               >
                 <span>Light mode</span>
               </button>
-              <a className="vbc-followup-shortcut" href="/followups" aria-label="Open Follow-ups workspace"><span aria-hidden="true">◎</span> Follow-ups <span aria-hidden="true">↗</span></a>
+              <a
+                className="vbc-followup-shortcut"
+                href="/followups"
+                aria-label="Open Follow-ups workspace"
+              >
+                <span aria-hidden="true">◎</span> Follow-ups{" "}
+                <span aria-hidden="true">↗</span>
+              </a>
               <span className="time-zone">Africa / Lagos</span>
               <a className="text-link" href="/guide">
                 Screen guide
@@ -820,6 +827,14 @@ function MemberProfile({
           </div>
         </div>
         <div className="actions">
+          {!member.archivedAt && (
+            <a
+              className="btn"
+              href={"/followups?person=" + encodeURIComponent(member.id)}
+            >
+              Open visitor journey
+            </a>
+          )}
           {canEdit && (
             <button type="button" className="btn primary" onClick={onEdit}>
               Edit profile
@@ -1133,17 +1148,32 @@ function MemberEditor({
             <select
               id="record-status"
               value={draft.status}
-              disabled={pending}
+              disabled={pending || member?.status === "member"}
               onChange={(event) => change("status", event.target.value)}
             >
               {Object.entries(MEMBER_STATUSES).map(([value, label]) => (
-                <option key={value} value={value}>
+                <option
+                  key={value}
+                  value={value}
+                  disabled={value === "member" && member?.status !== "member"}
+                >
                   {label}
                 </option>
               ))}
             </select>
           </div>
-          {input("joined", "First visit / joined", "date", undefined, true)}
+          <p className="help-text">
+            Official membership is confirmed in{" "}
+            <a href="/followups#membership">Visitor Journey</a>. This form keeps
+            the original record date.
+          </p>
+          {input(
+            "joined",
+            "Original visit / record date",
+            "date",
+            undefined,
+            true,
+          )}
           {input("occupation", "Occupation", "text", 150)}
           <div className="field">
             <label htmlFor="record-address">Residential address</label>
@@ -1167,7 +1197,9 @@ function MemberEditor({
           with +234. Milestones keep month and day only.
         </p>
         <div className="notice mt">
-          Saving these details does not change message permissions. New member records do not establish messaging consent. Review and record channel preferences separately before sending.
+          Saving these details does not change message permissions. New member
+          records do not establish messaging consent. Review and record channel
+          preferences separately before sending.
         </div>
       </form>
       <div className="modal-foot">

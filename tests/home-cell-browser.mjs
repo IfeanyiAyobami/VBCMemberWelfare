@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {journeyMock,runJourneyBrowser} from "./journey-browser.mjs";
 import { createServer } from "node:http";
 import { createHmac, randomUUID } from "node:crypto";
 import { spawn } from "node:child_process";
@@ -158,6 +159,7 @@ const mock = createServer(async (req, res) => {
   const auth = tokens.get(
     (req.headers.authorization || "").replace(/^Bearer /i, ""),
   );
+  if (await journeyMock(req,res,url,auth,json)) return;
   if (
     req.headers.apikey === "sb_secret_hco_fixture_0123456789" &&
     url.pathname === "/rest/v1/care_members"
@@ -1142,6 +1144,7 @@ try {
       sameSite: "Lax",
     })),
   );
+  await runJourneyBrowser(page,origin);
   await page.goto(origin + "/home-cell");
   const uid = (n) => "00000000-0000-4000-8000-" + String(n).padStart(12, "0");
   const area = { id: uid(10), name: "Total Garden/Mokola" };
@@ -1451,6 +1454,19 @@ try {
     await page.screenshot({
       path: process.env.HCO_SCREENSHOT_DIR + "/leadership-reassign-dialog.png",
     });
+  for (const globalTheme of ["dark","light"]) for (const hcDark of [false,true]) {
+    await page.evaluate(({globalTheme,hcDark})=>{document.documentElement.dataset.theme=globalTheme;document.querySelector('.hc-app').classList.toggle('hc-dark',hcDark)},{globalTheme,hcDark});
+    const colours=await page.locator('dialog.la-dialog[open]').evaluate(d=>({bg:getComputedStyle(d).backgroundColor,head:getComputedStyle(d.querySelector('header')).backgroundColor,title:getComputedStyle(d.querySelector('h2')).color,ink:getComputedStyle(d).getPropertyValue('--hc-ink').trim()}));
+    assert.equal(colours.bg,colours.head,'Header and dialog use same Home Cell surface');
+    assert.notEqual(colours.title,colours.bg,'Dialog heading never disappears into its surface');
+    for(const width of [1440,390]) {
+      await page.setViewportSize({width,height:844});
+      assert(await page.getByRole('button',{name:'Save reassignment'}).evaluate(e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}));
+      if(process.env.HCO_SCREENSHOT_DIR)await page.screenshot({path:process.env.HCO_SCREENSHOT_DIR+`/reassignment-global-${globalTheme}-hc-${hcDark}-${width}.png`});
+    }
+  }
+  await page.evaluate(()=>{document.querySelector('.hc-app').classList.add('hc-dark');document.documentElement.dataset.theme='dark'});
+  await page.setViewportSize({width:1440,height:1000});
   await page.getByRole("button", { name: "Save reassignment" }).click();
   await page
     .getByRole("status")

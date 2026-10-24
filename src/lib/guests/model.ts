@@ -89,10 +89,9 @@ export type Match = {
 export function emptyGuest(): GuestDraft {
   return {
     ...Object.fromEntries(Object.keys(GUEST_LIMITS).map((k) => [k, ""])),
-    ...Object.fromEntries(
-      Object.keys(PREFERENCE_LABELS).map((k) => [k, false]),
-    ),
-    email_opt_in: true,
+    ...Object.fromEntries(Object.keys(PREFERENCE_LABELS).map((k) => [k, true])),
+    // Email becomes available when an address is entered.
+    email_opt_in: false,
     sms_opt_in: true,
     visit_date: todayInLagos(),
   } as GuestDraft;

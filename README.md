@@ -1,3 +1,11 @@
+# Latest correction: v3.7.1 Custom dark palette
+
+Dark canvas/sidebar: **#000956**; cards: **#0f0f59**; text: **#f5f5ff**; muted text: **#b9b9db**; borders: **#303077**. Reuses migration 017; no additional SQL is required for this colour correction.
+
+# Latest update: v3.7 Visitor Journey + leadership dialog fix
+
+Start with [VBC_Visitor_Journey_v3.7_SETUP.md](VBC_Visitor_Journey_v3.7_SETUP.md). Apply the additive migration **017** and deploy this version together. Follow-ups now opens the connected visitor-to-membership journey, including CFC, continuing care, retained guest history and light/dark mode. The Home Cell reassignment dialog contrast and scrolling are corrected in both independent themes.
+
 # Latest update: v3.6 Leadership accounts
 
 Read HOME_CELL_V3_6_LEADERSHIP_ACCOUNTS.md. Apply the new additive SQL 016 for replacement passwords. Keep your working Netlify variables and local environment.

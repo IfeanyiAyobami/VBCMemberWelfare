@@ -96,9 +96,13 @@ export function validateGateway(input: unknown, idempotencyKey: string | null) {
   ] as const)
     draft[key] = p[key];
   draft.contact_consent = true;
-  // Email is optional in the public gateway contract; no address means no email channel.
-  if (!draft.email.trim()) draft.email_opt_in = false;
-  // Retain existing application preference defaults; actual delivery is separately gated.
+  // Migration 008 derives defaults server-side. Its unchanged wire contract
+  // requires neutral sending flags, regardless of the public email field.
+  draft.email_opt_in = false;
+  draft.sms_opt_in = false;
+  draft.celebrations_opt_in = false;
+  draft.programmes_opt_in = false;
+  draft.newsletters_opt_in = false;
   const valid = validateGuest(draft);
   if (!valid.ok) return fail(Object.keys(valid.errors)[0]);
   return { ok: true as const, payload: p, guest: guestColumns(valid.value) };

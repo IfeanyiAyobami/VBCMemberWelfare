@@ -33,8 +33,8 @@ check(
     "celebrations_opt_in",
     "programmes_opt_in",
     "newsletters_opt_in",
-  ].every((k) => v.guest[k] === ["email_opt_in", "sms_opt_in"].includes(k)),
-  "Gateway retains existing email/SMS defaults and optional category opt-outs",
+  ].every((k) => v.guest[k] === false),
+  "Gateway sends neutral flags required by migration 008; database derives new-record defaults",
 );
 check(
   v.guest.birthday_month === null && v.guest.anniversary_day === null,

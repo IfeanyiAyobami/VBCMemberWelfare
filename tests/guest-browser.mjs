@@ -68,8 +68,8 @@ export async function runGuestBrowser(origin) {
     await page.locator("#guest-home_visit").selectOption("Yes");
     await d.getByRole("button", { name: "Continue", exact: true }).click();
     check(
-      "Guest choices begin off",
-      !(await d.locator("input[type=checkbox]:checked").count()),
+      "New staff guest cards use all initial preferences ON when email is present",
+      (await d.locator("input[type=checkbox]:checked").count()) === 6,
     );
     await d
       .getByRole("checkbox", {
@@ -81,6 +81,7 @@ export async function runGuestBrowser(origin) {
     await d
       .getByRole("checkbox", { name: "Monthly newsletter", exact: true })
       .check();
+    await d.getByRole("checkbox", { name: "SMS", exact: true }).uncheck();
     await page
       .locator("#guest-evidence")
       .fill(
@@ -124,6 +125,15 @@ export async function runGuestBrowser(origin) {
       .getByRole("heading", { name: "UI Guest Fixture", exact: true })
       .waitFor();
     const profile = page.url();
+    check(
+      "Explicit SMS opt-out survives guest review and visitor creation",
+      (
+        await page
+          .locator(".settings-row")
+          .filter({ hasText: "SMS" })
+          .innerText()
+      ).includes("Off"),
+    );
     check(
       "New member has the birthday without a birth year",
       (await page.getByText("29 February", { exact: true }).count()) === 1,
@@ -258,10 +268,11 @@ export async function runGuestBrowser(origin) {
     await page.locator("#vbcft-continue-button").click();
     await page.locator("#vbcft-continue-button").click();
     check(
-      "Elementor optional choices begin off",
-      !(await page
-        .locator("#vbc-first-timers input[type=checkbox]:checked")
-        .count()),
+      "Bundled legacy Elementor form retains its email/SMS defaults",
+      (await page.locator('#vbcft-email_opt_in').isChecked()) &&
+      (await page.locator('#vbcft-sms_opt_in').isChecked()) &&
+      !(await page.locator('#vbcft-contact_consent').isChecked()) &&
+      !(await page.locator('#vbcft-newsletters_opt_in').isChecked()),
     );
     await page.locator("#vbcft-contact_consent").check();
     await page.locator("#vbcft-newsletters_opt_in").check();

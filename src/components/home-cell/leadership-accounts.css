@@ -867,3 +867,66 @@
   color: #000956;
   border-color: #a4afff;
 }
+/* Home Cell has its own theme. Never inherit Member Care's global dialog colours. */
+.hc-app dialog.la-dialog {
+  --ink: var(--hc-ink);
+  --muted: var(--hc-muted);
+  --surface: var(--hc-surface);
+  --line: var(--hc-line);
+  background: var(--hc-surface);
+  color: var(--hc-ink);
+  border-color: var(--hc-line);
+  color-scheme: light;
+}
+.hc-app.hc-dark dialog.la-dialog {
+  color-scheme: dark;
+}
+.hc-app dialog.la-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.hc-app .la-dialog-head {
+  flex-shrink: 0;
+  background: var(--hc-surface);
+  color: var(--hc-ink);
+}
+.hc-app .la-dialog-head h2,
+.hc-app .la-dialog label,
+.hc-app .la-dialog .la-review b,
+.hc-app .la-dialog .la-note b {
+  color: var(--hc-ink);
+}
+.hc-app .la-dialog-head p,
+.hc-app .la-dialog .la-review p,
+.hc-app .la-dialog .la-review span {
+  color: var(--hc-muted);
+}
+.hc-app .la-dialog-body {
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.hc-app .la-dialog-actions {
+  position: sticky;
+  bottom: -24px;
+  z-index: 3;
+  background: var(--hc-surface);
+  padding: 18px 0 20px;
+  box-shadow: 0 -8px 14px var(--hc-surface);
+}
+@media (max-width: 650px) {
+  .hc-app .la-dialog {
+    max-height: 92svh;
+  }
+  .hc-app .la-dialog-actions {
+    bottom: -20px;
+    padding-bottom: max(18px, env(safe-area-inset-bottom));
+  }
+  .hc-app .la-dialog label {
+    font-size: 12px;
+  }
+  .hc-app .la-dialog :is(input, select, textarea) {
+    font-size: 16px;
+  }
+}

@@ -41,7 +41,13 @@ export async function memberAccess(request: NextRequest, write = false) {
       };
     }
     if (session.staff.role === "followup_worker")
-      return { ok: false as const, response: authJSON({ message: "Follow-up workers can only access assigned follow-ups." }, 403) };
+      return {
+        ok: false as const,
+        response: authJSON(
+          { message: "Follow-up workers can only access assigned follow-ups." },
+          403,
+        ),
+      };
     if (write && session.staff.role === "viewer")
       return {
         ok: false as const,
@@ -183,7 +189,23 @@ export function mapMember(row: Record<string, any>): MemberRecord {
     },
   };
 }
-export function memberDatabaseError(error: { code?: string }) {
+export function memberDatabaseError(error: {
+  code?: string;
+  message?: string;
+}) {
+  if (
+    error.code === "22023" &&
+    /^(Confirm official membership|Official membership cannot)/.test(
+      error.message || "",
+    )
+  )
+    return authJSON(
+      {
+        message:
+          "Official membership is managed in Visitor Journey. Keep this profile status unchanged and use the Coordinator joining action.",
+      },
+      400,
+    );
   if (error.code === "P0002")
     return authJSON({ message: "Member not found or archived." }, 404);
   if (error.code === "40001")

@@ -34,11 +34,11 @@
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --canvas: #040451;
+  --canvas: #000956;
   --surface: #0f0f59;
   --surface-subtle: #0a0a4b;
   --surface-raised: #1c1c6b;
-  --sidebar: #170059;
+  --sidebar: #000956;
   --ink: #f5f5ff;
   --muted: #b9b9db;
   --line: #303077;

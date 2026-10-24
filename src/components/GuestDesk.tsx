@@ -458,6 +458,7 @@ function GuestEditor({
     [evidence, setEvidence] = useState(""),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const emailChoiceTouched = useRef(false);
   const requestId = useRef("");
   useEffect(() => {
     requestId.current = crypto.randomUUID();
@@ -586,7 +587,22 @@ function GuestEditor({
                   e: React.ChangeEvent<
                     HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
                   >,
-                ) => setDraft({ ...draft, [key]: e.target.value }),
+                ) => {
+                  const value = e.target.value;
+                  setDraft({
+                    ...draft,
+                    [key]: value,
+                    ...(key === "email"
+                      ? {
+                          email_opt_in: value.trim()
+                            ? emailChoiceTouched.current
+                              ? draft.email_opt_in
+                              : true
+                            : false,
+                        }
+                      : {}),
+                  });
+                },
               };
               return (
                 <div className={"field " + (text ? "full" : "")} key={key}>
@@ -643,8 +659,10 @@ function GuestEditor({
         ) : (
           <>
             <p className="hint">
-              Choose only what the guest explicitly agreed to. Email and SMS are
-              separate from message topics.
+              New cards use the church’s initial preference defaults. Review the
+              guest’s requests and turn off declined channels or topics.
+              Defaults alone are not evidence of consent. Email requires an
+              address.
             </p>
             <fieldset className="care-consent-fields" disabled={busy}>
               <legend>Guest choices</legend>
@@ -659,9 +677,14 @@ function GuestEditor({
                     type="checkbox"
                     checked={draft[key as keyof Preferences]}
                     aria-invalid={!!errors[key]}
-                    onChange={(e) =>
-                      setDraft({ ...draft, [key]: e.target.checked })
+                    disabled={
+                      busy || (key === "email_opt_in" && !draft.email.trim())
                     }
+                    onChange={(e) => {
+                      if (key === "email_opt_in")
+                        emailChoiceTouched.current = true;
+                      setDraft({ ...draft, [key]: e.target.checked });
+                    }}
                   />
                 </label>
               ))}

@@ -75,7 +75,8 @@ try {
     "supabase/004_care_controls.sql",
     "supabase/005_guest_review.sql",
     "supabase/006_wordpress_gateway.sql",
-    "supabase/006_wordpress_gateway.sql",
+    "supabase/008_default_communication_preferences.sql",
+    "supabase/008_default_communication_preferences.sql",
   ])
     await db.exec(await readFile(f, "utf8"));
   check(true, "Additive migration applies twice");
@@ -139,8 +140,8 @@ try {
       "celebrations_opt_in",
       "programmes_opt_in",
       "newsletters_opt_in",
-    ].every((k) => g[k] === false),
-    "All five sending choices remain false",
+    ].every((k) => g[k] === (k !== "email_opt_in")),
+    "Migration 008 derives new sending defaults; missing email remains off",
   );
   await role("service_role");
   await denied(() => call(id(1), {}, "c".repeat(64)), "23505");
@@ -282,6 +283,11 @@ try {
     ).every((s) => !s.email_enabled && !s.sms_enabled),
     "Sending controls stay disabled",
   );
+  await role('service_role');
+  const withEmail=await call(id(6),{email:'fictional.gateway@example.invalid'});
+  await role('postgres');
+  const [emailGuest]=await q('select * from care_guest_submissions where id=$1',[withEmail.id]);
+  check(['email_opt_in','sms_opt_in','celebrations_opt_in','programmes_opt_in','newsletters_opt_in'].every(k=>emailGuest[k]===true),'Migration 008 derives all initial sending choices when email is supplied');
   console.log(count + " Gateway SQL/RLS checks passed. Isolated engine only.");
 } finally {
   await db.close();
