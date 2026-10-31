@@ -24,7 +24,7 @@ function failure(error: { code?: string; message?: string }) {
       : code === "23514" || code === "23502"
         ? "Check the required fields and allowed values."
         : status === 503
-          ? "Journey service is unavailable. Check migration 017 and try again."
+          ? "Journey service is unavailable. Check migrations 018 and 019 and try again."
           : error.message || "Unable to save.";
   return authJSON({ message }, status);
 }
@@ -85,11 +85,17 @@ export async function POST(request: NextRequest) {
       Array.isArray(body.data)
     )
       return authJSON({ message: "Invalid journey request." }, 400);
-    const { data, error } = await client.rpc("care_journey_write", {
-      p_action: body.action,
-      p_data: body.data,
-      p_request: body.requestId,
-    });
+    const { data, error } =
+      body.action === "direct"
+        ? await client.rpc("care_journey_direct", {
+            p_data: body.data,
+            p_request: body.requestId,
+          })
+        : await client.rpc("care_journey_write", {
+            p_action: body.action,
+            p_data: body.data,
+            p_request: body.requestId,
+          });
     return error ? failure(error) : authJSON(data);
   } catch (error) {
     return authJSON(

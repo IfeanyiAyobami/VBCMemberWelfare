@@ -16,7 +16,7 @@
   padding: 6px 0;
 }
 .la-eyebrow {
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 2px;
   color: var(--hc-muted);
@@ -170,7 +170,7 @@
   padding-top: 12px;
   padding-bottom: 12px;
   color: var(--hc-muted);
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -215,7 +215,7 @@
 }
 .la-person p,
 .la-person small {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin: 3px 0 0;
   overflow-wrap: anywhere;
@@ -231,7 +231,7 @@
   font-size: 12px;
 }
 .la-role-summary span {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   overflow-wrap: anywhere;
 }
@@ -239,7 +239,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size: 13px;
   font-weight: 600;
   color: #16745a;
   background: #e9f7ef;
@@ -266,7 +266,7 @@
 .la-repair-note {
   display: block;
   color: var(--hc-muted);
-  font-size: 10px;
+  font-size: 13px;
   margin-top: 5px;
 }
 .la-page button.la-manage {
@@ -286,7 +286,7 @@
   align-items: center;
   gap: 12px;
   padding: 17px 22px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .la-pagination > div {
@@ -297,7 +297,7 @@
 .la-page .la-pagination button {
   min-height: 36px;
   padding: 6px 11px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .la-loading,
 .la-empty {
@@ -332,7 +332,7 @@
   font-weight: 600;
 }
 .la-help p {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin: 4px 0 0;
   max-width: 780px;
@@ -385,7 +385,7 @@
 .la-dialog-head p {
   margin: 5px 0 0;
   color: var(--hc-muted);
-  font-size: 11px;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 .la-page .la-dialog-head .la-icon {
@@ -436,7 +436,7 @@
 }
 .la-note small,
 .la-review small {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 1.2px;
   color: var(--hc-muted);
@@ -458,7 +458,7 @@
   color: #76551d;
 }
 .la-hint {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   line-height: 1.8;
 }
@@ -474,7 +474,7 @@
   gap: 8px;
   align-items: center;
   color: var(--hc-muted);
-  font-size: 11px;
+  font-size: 13px;
 }
 .la-stepper li > span {
   width: 24px;
@@ -498,7 +498,7 @@
   display: flex;
   align-items: center;
   gap: 15px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin-bottom: 14px;
 }
@@ -521,7 +521,7 @@
 }
 .la-section-heading p,
 .la-security-options p {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin: 5px 0 0;
 }
@@ -543,7 +543,7 @@
   font-weight: 500;
 }
 .la-assignment span {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   overflow-wrap: anywhere;
 }
@@ -553,7 +553,7 @@
 }
 .la-page .la-assignment button {
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .la-security-options {
   display: grid;
@@ -573,7 +573,7 @@
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 400;
   line-height: 1.8;
 }
@@ -607,7 +607,7 @@
   font-weight: 600;
 }
 .la-credential-success p {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin: 4px 0 0;
 }
@@ -694,10 +694,10 @@
     font-size: 22px;
   }
   .la-intro p {
-    font-size: 11px;
+    font-size: 13px;
   }
   .la-page .la-intro > button {
-    font-size: 11px;
+    font-size: 13px;
     white-space: nowrap;
     padding: 10px;
   }
@@ -719,13 +719,13 @@
     font-size: 25px;
   }
   .la-summary span {
-    font-size: 10px;
+    font-size: 13px;
   }
   .la-tabs {
     gap: 20px;
   }
   .la-page .la-tabs button {
-    font-size: 11px;
+    font-size: 13px;
   }
   .la-toolbar {
     grid-template-columns: 1fr 1fr;
@@ -764,7 +764,7 @@
     grid-row: 2/4;
     align-self: end;
     min-height: 40px;
-    font-size: 11px;
+    font-size: 13px;
   }
   .la-pagination {
     padding: 16px;
@@ -819,7 +819,7 @@
     gap: 20px;
   }
   .la-stepper li {
-    font-size: 10px;
+    font-size: 13px;
   }
   .la-detail-tabs {
     gap: 15px;

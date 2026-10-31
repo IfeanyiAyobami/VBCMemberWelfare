@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {whatsappMock,runWhatsAppBrowser} from "./whatsapp-browser.mjs";
 import {journeyMock,runJourneyBrowser} from "./journey-browser.mjs";
 import { createServer } from "node:http";
 import { createHmac, randomUUID } from "node:crypto";
@@ -159,6 +160,7 @@ const mock = createServer(async (req, res) => {
   const auth = tokens.get(
     (req.headers.authorization || "").replace(/^Bearer /i, ""),
   );
+  if (await whatsappMock(req,res,url,auth,json)) return;
   if (await journeyMock(req,res,url,auth,json)) return;
   if (
     req.headers.apikey === "sb_secret_hco_fixture_0123456789" &&
@@ -1017,6 +1019,11 @@ const child = spawn(
       NEXT_PUBLIC_SUPABASE_URL: mockOrigin,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_fixture_0123456789",
       NEXT_TELEMETRY_DISABLED: "1",
+      WHATSAPP_API_ENABLED:"false",
+      WHATSAPP_PHONE_NUMBER_ID:"111",
+      WHATSAPP_BUSINESS_ACCOUNT_ID:"222",
+      WHATSAPP_APP_SECRET:"fixture-app-secret-long",
+      WHATSAPP_VERIFY_TOKEN:"fixture-verify-token-long",
       SUPABASE_SERVICE_ROLE_KEY: "sb_secret_hco_fixture_0123456789",
       VBC_GUEST_BRIDGE_ENABLED: process.argv.includes("--bridge-disabled")
         ? "false"
@@ -1145,6 +1152,7 @@ try {
     })),
   );
   await runJourneyBrowser(page,origin);
+  await runWhatsAppBrowser(page,origin);
   await page.goto(origin + "/home-cell");
   const uid = (n) => "00000000-0000-4000-8000-" + String(n).padStart(12, "0");
   const area = { id: uid(10), name: "Total Garden/Mokola" };

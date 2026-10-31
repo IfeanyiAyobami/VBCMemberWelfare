@@ -11,24 +11,44 @@ import {
 import type { StaffIdentity } from "@/lib/auth/types";
 import {
   outcomes,
+  visitPurposes,
   uuid,
   nextMembershipSunday,
   type JourneySnapshot,
+  type JourneyPerson,
   type Entry,
 } from "@/lib/journey/model";
 import "./journey.css";
+import WhatsAppInvitations from "./WhatsAppInvitations";
+import CommandPalette from "./CommandPalette";
+import {
+  DirectRegistrationFields,
+  IntegrationProfile,
+  JourneyReports,
+} from "./JourneyExtensions";
 const labels: Record<string, string> = {
-  overview: "Overview",
+  overview: "Today",
   visitors: "Visitors",
   followups: "Follow-ups",
   attendance: "Church attendance",
   membership: "Membership Sunday",
   care: "Follow-through",
   cfc: "Foundation classes",
+  ministry: "Ministry involvement",
+  home_cells: "Home Cell integration",
+  reports: "Reports & scoreboard",
 };
 const actionNames: Record<string, string> = {
+  direct: "Direct membership registration",
+  previous_visit: "Record a known previous visit",
+  void_previous_visit: "Correct previous-visit confirmation",
+  purpose: "Visitor purpose / interest",
+  followup_state: "Follow-up status",
+  support: "Record a support need",
+  ministry_add: "Add ministry involvement",
+  ministry_end: "End ministry assignment",
   assign: "Assign a Follow-through Friend",
-  contact: "Record care activity",
+  contact: "Log a care outcome",
   attendance: "Record church attendance",
   void_attendance: "Correct attendance",
   review_membership: "Review corrected membership evidence",
@@ -68,6 +88,22 @@ const localTime = () => {
 };
 function Icon({ name }: { name: string }) {
   const paths: Record<string, ReactNode> = {
+    ministry: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3 21v-3a6 6 0 0 1 12 0v3m3-15a3 3 0 0 1 0 6m3 9v-3a6 6 0 0 0-3-5" />
+      </>
+    ),
+    home_cells: (
+      <>
+        <path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Zm6 11v-8h6v8" />
+      </>
+    ),
+    reports: (
+      <>
+        <path d="M3 3v18h18M7 16v-4m5 4V7m5 9v-7" />
+      </>
+    ),
     overview: (
       <>
         <rect x="3" y="3" width="7" height="7" rx="2" />
@@ -127,6 +163,15 @@ function Icon({ name }: { name: string }) {
       </>
     ),
     check: <path d="m4 12 5 5L20 6" />,
+    phone: (
+      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
+    ),
+    whatsapp: (
+      <>
+        <path d="M3.5 20.5 5 16a8.5 8.5 0 1 1 3.2 3.1Z" />
+        <path d="M9 8.5c0 3.5 2.6 6.5 6.5 6.5l1-1.6-2-1-1 .9c-1.2-.5-2.3-1.6-2.8-2.8l.9-1-1-2Z" />
+      </>
+    ),
     close: <path d="m6 6 12 12M6 18 18 6" />,
   };
   return (
@@ -231,7 +276,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     [busy, setBusy] = useState(false),
     [formError, setFormError] = useState(""),
     [dark, setDark] = useState(true),
-    [menu, setMenu] = useState(false);
+    [menu, setMenu] = useState(false),
+    [pending, setPending] = useState<string | null>(null),
+    [palette, setPalette] = useState(false);
   const sequence = useRef(0),
     mounted = useRef(true),
     replay = useRef<{ body: string; id: string } | null>(null),
@@ -243,7 +290,11 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       const params = new URLSearchParams({
         search,
         page: String(page),
-        view,
+        view:
+          (view === "overview" && stage === "overdue") ||
+          ["ministry", "home_cells", "reports"].includes(view)
+            ? "all"
+            : view,
         stage,
       });
       if (selected) params.set("memberId", selected);
@@ -294,8 +345,12 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     function change() {
       const hash = location.hash.slice(1);
       if (Object.hasOwn(labels, hash)) setView(hash);
+      setStage("all");
+      setPending(null);
       const personId = new URLSearchParams(location.search).get("person");
       setSelected(personId && uuid.test(personId) ? personId : null);
+      const profileTab = new URLSearchParams(location.search).get("tab");
+      if (profileTab === "integration") setTab("community");
       setPage(0);
     }
     change();
@@ -315,27 +370,59 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     !!person &&
     (caps?.coordinator ||
       (person.assigned_to === staff.user_id && caps?.friend));
-  function navigate(next: string) {
+  function navigate(next: string, filter = "all") {
     if (modal || busy) return;
     setSelected(null);
     setView(next);
+    setStage(filter);
+    setPending(null);
     setPage(0);
     setMenu(false);
     setQuery("");
     setSearch("");
     history.replaceState(null, "", location.pathname + "#" + next);
   }
-  function openPerson(id: string) {
+  function openPerson(id: string, nextTab?: string) {
     setSelected(id);
     history.replaceState(
       null,
       "",
       location.pathname + "?person=" + encodeURIComponent(id) + "#" + view,
     );
-    setTab("journey");
+    setTab(
+      nextTab ||
+        (["ministry", "home_cells"].includes(view) ? "community" : "journey"),
+    );
     window.scrollTo({ top: 0, behavior: "instant" });
   }
+  useEffect(() => {
+    if (!pending || modal || !person || !detail) return;
+    const next = pending;
+    setPending(null);
+    setFormError("");
+    replay.current = null;
+    setModal(next);
+  }, [pending, modal, person, detail]);
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null;
+      const typing =
+        !!t &&
+        (t.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (!modal) setPalette(true);
+      } else if (e.key === "/" && !typing && !modal && !e.altKey) {
+        e.preventDefault();
+        setPalette(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modal]);
   function closeProfile() {
+    setPending(null);
     setSelected(null);
     history.replaceState(null, "", location.pathname + "#" + view);
   }
@@ -368,6 +455,11 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         .filter(Boolean);
       data.firstContactHours = Number(values.firstContactHours);
     }
+    if (modal === "direct" && !values.existingId) {
+      data.contactConsent = values.contactConsent === "true";
+      data.emailOptIn = values.emailOptIn === "true";
+      data.smsOptIn = values.smsOptIn === "true";
+    }
     if (modal === "role") data.enabled = values.enabled === "true";
     for (const key of ["occurredAt", "nextDue"]) {
       if (data[key]) data[key] = new Date(String(data[key])).toISOString();
@@ -391,6 +483,8 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       const response = await r.json();
       if (!r.ok) throw Error(response.message || "Unable to save.");
       setModal(null);
+      if (modal === "direct" && response.memberId)
+        openPerson(response.memberId);
       setToast("Saved successfully. Your journey history has been retained.");
       await load();
     } catch (e) {
@@ -414,6 +508,51 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
   }
   const rows = snapshot?.items || [],
     stats = snapshot?.stats || {};
+  const overdueCount = stats.overdue || 0,
+    unassignedCount = stats.unassigned || 0;
+  const canCare = (p: JourneyPerson) =>
+    !!caps?.coordinator || (!!caps?.friend && p.assigned_to === staff.user_id);
+  function rowActions(p: JourneyPerson) {
+    const callable =
+      !!p.phone && p.contact_consent && p.followup_state === "active";
+    const care = canCare(p);
+    if (!callable && !care) return null;
+    return (
+      <div className="vj-row-actions">
+        {callable && (
+          <a
+            className="vj-secondary vj-square"
+            href={"tel:" + p.phone}
+            aria-label={"Call " + p.name}
+            title={"Call " + p.name}
+          >
+            <Icon name="phone" />
+          </a>
+        )}
+        {care && p.contact_consent && p.followup_state === "active" && (
+          <button
+            className="vj-secondary vj-square vj-wa"
+            aria-label={"WhatsApp invitation for " + p.name}
+            title={"WhatsApp invitation for " + p.name}
+            onClick={() => openPerson(p.member_id, "whatsapp")}
+          >
+            <Icon name="whatsapp" />
+          </button>
+        )}
+        {care && (
+          <button
+            className="vj-primary"
+            onClick={() => {
+              openPerson(p.member_id);
+              setPending("contact");
+            }}
+          >
+            Log outcome
+          </button>
+        )}
+      </div>
+    );
+  }
   const field = (
     name: string,
     label: string,
@@ -445,7 +584,12 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
   ) => (
     <label>
       {label}
-      <select name={name} required defaultValue={initial || ""}>
+      <select
+        aria-label={label}
+        name={name}
+        required
+        defaultValue={initial || ""}
+      >
         <option value="" disabled>
           Select…
         </option>
@@ -475,6 +619,122 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     if (!snapshot) return null;
     const p = snapshot.policy;
     switch (modal) {
+      case "previous_visit":
+        return (
+          <>
+            {field(
+              "beforeDate",
+              "Known to have visited before this date · not the visit date",
+              "date",
+              true,
+              today(),
+            )}
+            {select("source", "Confirmation source", [
+              ["phone", "Visitor reported by phone"],
+              ["whatsapp", "Visitor reported by WhatsApp"],
+              ["church_staff", "Church staff confirmation"],
+              ["other", "Other"],
+            ])}
+            {notes(true, "Evidence of a previous VBC church visit")}
+            <p className="vj-hint vj-wide">
+              Use this only when a previous visit is known but its exact date is
+              unknown. This records a dated boundary for the claim, not an
+              invented service date. It does not approve same-day first-time
+              joining.
+            </p>
+          </>
+        );
+      case "void_previous_visit":
+        return (
+          <>
+            {select(
+              "visitId",
+              "Confirmation to correct",
+              (detail?.previous_visits || [])
+                .filter((x) => !x.voided_at)
+                .map((x) => [x.id, "Known before " + date(x.known_before)]),
+            )}
+            {notes(true, "Correction reason")}
+          </>
+        );
+      case "direct":
+        return <DirectRegistrationFields />;
+      case "purpose":
+        return (
+          <>
+            {select(
+              "purpose",
+              "Visit purpose / interest",
+              Object.entries(visitPurposes),
+              person?.visit_purpose || "not_specified",
+            )}
+            {notes(false, "Conversation context · optional")}
+            <p className="vj-hint vj-wide">
+              Optional classification guides appropriate care. It never prevents
+              membership.
+            </p>
+          </>
+        );
+      case "followup_state":
+        return (
+          <>
+            {select(
+              "state",
+              "Follow-up status",
+              [
+                ["active", "Visitors in follow-up"],
+                ["paused", "Paused"],
+                ["inactive", "Inactive"],
+              ],
+              person?.followup_state === "declined_contact"
+                ? "paused"
+                : person?.followup_state || "active",
+            )}
+            {notes(true, "Reason for this status")}
+            <p className="vj-hint vj-wide">
+              Use the no-further-contact outcome to stop all outreach channels.
+              Resuming requires recorded contact permission.
+            </p>
+          </>
+        );
+      case "support":
+        return (
+          <>
+            {notes(true, "Private welfare / support need")}
+            <p className="vj-hint vj-wide">
+              Only the assigned friend and Coordinator can read this journal.
+              These notes are excluded from standard exports.
+            </p>
+          </>
+        );
+      case "ministry_add":
+        return (
+          <>
+            {field("team", "Ministry / activity team")}
+            {field("responsibility", "Role / responsibility", "text", false)}
+            {field(
+              "date",
+              "Actual date joined · leave unknown dates blank",
+              "date",
+              false,
+            )}
+            {notes(false, "Context · optional")}
+          </>
+        );
+      case "ministry_end":
+        return (
+          <>
+            {select(
+              "ministryId",
+              "Active assignment",
+              (detail?.ministry || [])
+                .filter((x) => x.active)
+                .map((x) => [x.id, x.team_name + " · " + x.responsibility]),
+            )}
+            {field("date", "Actual date left", "date", true, today())}
+            {notes(true, "Reason for ending this assignment")}
+          </>
+        );
       case "assign":
         return (
           <>
@@ -543,9 +803,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             {field("serviceKey", "Service name / session (e.g. main service)")}
             {field(
               "serviceType",
-              "Church service type",
+              "Church service type · optional",
               "text",
-              true,
+              false,
               p.service_types[0] || "",
             )}
             {select("source", "Evidence received through", [
@@ -563,15 +823,14 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               ],
               "self_report",
             )}
-            {notes(true, "Attendance evidence and who confirmed it")}
+            {notes(false, "Attendance remarks · optional")}
             <p className="vj-hint vj-wide">
               {p.service_types.length
-                ? "Approved qualifying types: " + p.service_types.join(", ")
-                : "Qualifying church service types await church approval. Entries can be retained, but do not count yet."}{" "}
+                ? "Optional service labels: " + p.service_types.join(", ")
+                : "Record an actual VBC church visit and its source. The service type can be left unspecified."}{" "}
               Self-reports remain visibly marked for Coordinator review. Only
-              one entry per person, date and service type; use distinct approved
-              session types for separate services. Home Cell and CFC do not
-              count.
+              one entry per person, date and service type; distinguish separate
+              sessions by type. Home Cell and CFC do not count.
             </p>
           </>
         );
@@ -580,9 +839,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           <>
             {notes(true, "Administrator review and evidence reconciliation")}
             <p className="vj-hint vj-wide">
-              Official status stays intact during review. Two qualifying
-              services must remain supported before the actual joining date,
-              except reconciled legacy members.
+              Official status stays intact during review. One previous VBC visit
+              must remain supported before the actual joining date, except
+              reconciled legacy members.
             </p>
           </>
         );
@@ -615,6 +874,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               [
                 ["unknown", "Not discussed"],
                 ["interested", "Interested in joining"],
+                ["invited", "Contacted / invited"],
                 ["confirmed", "Confirmed intention to join"],
                 ["undecided", "Undecided"],
                 ["deferred", "Deferred"],
@@ -647,7 +907,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             )}
             <p className="vj-hint vj-wide">
               {modal === "join"
-                ? "This explicitly confirms official membership after two recorded qualifying church services."
+                ? "This explicitly confirms official membership after one recorded previous VBC church visit."
                 : "For a pre-existing official member only: confirm the actual date from reliable records; never guess it."}{" "}
               The same person ID, guest history and friend are retained. Six
               calendar months of care start on this date. No login account is
@@ -694,6 +954,13 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       case "enrol":
         return (
           <>
+            {field(
+              "date",
+              "Actual enrolment date · leave unknown dates blank",
+              "date",
+              false,
+              today(),
+            )}
             {select(
               "cohort",
               "CFC cohort",
@@ -711,6 +978,15 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       case "class_attendance":
         return (
           <>
+            {select(
+              "attendanceStatus",
+              "Class attendance outcome",
+              [
+                ["present", "Attended"],
+                ["absent", "Missed / absent"],
+              ],
+              "present",
+            )}
             {select(
               "week",
               "Class week",
@@ -745,6 +1021,13 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       case "certificate":
         return (
           <>
+            {field(
+              "date",
+              "Actual certificate award date · leave unknown dates blank",
+              "date",
+              false,
+              today(),
+            )}
             {field("number", "Approved certificate number")}
             {notes(true, "Certificate award evidence")}
             <p className="vj-hint vj-wide">
@@ -806,7 +1089,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         return (
           <>
             <label className="vj-wide">
-              Approved qualifying church service types · one per line
+              Optional church service labels · one per line
               <textarea
                 name="serviceTypes"
                 rows={3}
@@ -841,9 +1124,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </label>
             {notes(true, "Church approval reference / reason")}
             <p className="vj-hint vj-wide">
-              Leave unconfirmed rules blank. Policy changes apply to new
-              attendance evidence; retained evidence is never silently
-              reclassified.
+              Leave unconfirmed CFC and care policies blank. Optional service
+              labels do not add membership screening or change original
+              attendance evidence.
             </p>
           </>
         );
@@ -941,12 +1224,24 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               <Badge tone={person.status === "member" ? "green" : "blue"}>
                 {person.status === "member"
                   ? "Official member"
-                  : person.service_count >= 2
+                  : (person.membership_eligible ?? person.service_count >= 1)
                     ? "Membership eligible"
                     : "Visitor"}
               </Badge>
               {person.membership_review && (
                 <Badge tone="amber">Membership evidence needs review</Badge>
+              )}
+              <Badge tone="neutral">
+                {person.registration_source === "direct"
+                  ? "Direct registration"
+                  : person.registration_source === "visitor_form"
+                    ? "Guest intake"
+                    : person.registration_source === "staff_visitor"
+                      ? "Staff visitor record"
+                      : "Historical source unknown"}
+              </Badge>
+              {person.followup_state && person.followup_state !== "active" && (
+                <Badge tone="amber">{pretty(person.followup_state)}</Badge>
               )}
               {!person.contact_consent && (
                 <Badge tone="red">Outreach paused</Badge>
@@ -958,7 +1253,17 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </p>
           </div>
           <div className="vj-profile-actions">
-            {own && button("contact", "Record activity", false)}
+            {person.phone &&
+              person.contact_consent &&
+              person.followup_state === "active" && (
+                <a className="vj-secondary" href={"tel:" + person.phone}>
+                  <Icon name="phone" />
+                  Call
+                </a>
+              )}
+            {own && button("contact", "Log outcome", false)}
+            {own && button("purpose", "Visit purpose")}
+            {own && button("followup_state", "Follow-up status")}
             {caps?.coordinator &&
               button(
                 "assign",
@@ -966,6 +1271,41 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               )}
           </div>
         </section>
+        {(own ||
+          (person.phone &&
+            person.contact_consent &&
+            person.followup_state === "active")) && (
+          <div className="vj-quickbar" aria-label="Quick actions">
+            {person.phone &&
+              person.contact_consent &&
+              person.followup_state === "active" && (
+                <a className="vj-secondary" href={"tel:" + person.phone}>
+                  <Icon name="phone" />
+                  Call
+                </a>
+              )}
+            {own &&
+              person.contact_consent &&
+              person.followup_state === "active" && (
+                <button
+                  className="vj-secondary"
+                  onClick={() => setTab("whatsapp")}
+                >
+                  <Icon name="whatsapp" />
+                  WhatsApp
+                </button>
+              )}
+            {own && (
+              <button
+                className="vj-primary"
+                onClick={() => action("contact")}
+                disabled={busy || loading}
+              >
+                Log outcome
+              </button>
+            )}
+          </div>
+        )}
         <details className="vj-panel vj-contact-details">
           <summary>
             Contact details & first visit <span>View recorded details</span>
@@ -982,11 +1322,17 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               <strong>{person.email || "Unavailable / opted out"}</strong>
             </div>
             <div>
-              <small>Reported first visit</small>
-              <strong>{date(person.reported_first_visit)}</strong>
+              <small>First visit on record</small>
+              <strong>
+                {date(person.reported_first_visit || person.first_visit_on)}
+              </strong>
               <small>Registration is not attendance evidence</small>
             </div>
             <div>
+              <small>Visit purpose</small>
+              <strong>
+                {visitPurposes[person.visit_purpose] || "Not specified"}
+              </strong>
               <small>Official membership</small>
               <strong>{date(person.official_joined_on)}</strong>
             </div>
@@ -994,30 +1340,30 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         </details>
         <div className="vj-tabs" aria-label="Profile sections">
           {[
-            "journey",
-            "followups",
-            "attendance",
-            "membership",
-            "cfc",
-            "followthrough",
-            "history",
-          ].map((t) => (
+            ["journey", "Journey"],
+            ["contact", "Contact log"],
+            ["membership", "Membership & CFC"],
+            ["community", "Community"],
+            ...(own ? [["whatsapp", "WhatsApp"]] : []),
+          ].map(([t, label]) => (
             <button
               key={t}
               className={tab === t ? "active" : ""}
               aria-pressed={tab === t}
               onClick={() => setTab(t)}
             >
-              {(
-                {
-                  followups: "Follow-ups",
-                  followthrough: "Follow-through",
-                  cfc: "CFC",
-                } as Record<string, string>
-              )[t] || pretty(t)}
+              {label}
             </button>
           ))}
         </div>
+        {tab === "whatsapp" && own && (
+          <WhatsAppInvitations
+            key={person.member_id}
+            memberId={person.member_id}
+            name={person.name}
+            onSaved={() => void load()}
+          />
+        )}
         {tab === "journey" && (
           <>
             <div className="vj-grid">
@@ -1033,7 +1379,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                   <li>
                     <span>1</span>
                     <div>
-                      <strong>Guest registration & identity review</strong>
+                      <strong>Registration & identity check</strong>
                       <p>
                         {detail.guests.length
                           ? detail.guests.length +
@@ -1046,11 +1392,14 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                     <span>2</span>
                     <div>
                       <strong>
-                        Church attendance · {person.service_count}/2
+                        First VBC visit ·{" "}
+                        {person.previous_visit_confirmed || person.service_count
+                          ? "Recorded"
+                          : "Not recorded"}
                       </strong>
                       <p>
-                        Two distinct qualifying church services, with the source
-                        and verification level retained.
+                        One previous VBC church visit is enough. The source and
+                        verification level stay visible.
                       </p>
                     </div>
                   </li>
@@ -1096,14 +1445,14 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </div>
           </>
         )}
-        {tab === "followups" && (
+        {tab === "contact" && (
           <section className="vj-panel">
             <div className="vj-panel-head">
               <div>
                 <h2>Contact journal</h2>
                 <p>Attempts and successful conversations remain distinct.</p>
               </div>
-              {own && button("contact", "Record activity", false)}
+              {own && button("contact", "Log outcome", false)}
             </div>
             <div className="vj-inset">
               <div className="vj-badges">
@@ -1135,9 +1484,10 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               )}
               <p className="vj-hint">
                 First-contact target: {snapshot?.policy.first_contact_hours}{" "}
-                hours from registration; seven days is overdue. Suggested
-                continuing cadence: once or twice a week, respecting the
-                person’s preferences.
+                hours from registration; seven days is overdue.{" "}
+                {person.official_joined_on
+                  ? "After joining, contact frequency follows individual preferences and Coordinator direction; the church-wide cadence is still awaiting confirmation."
+                  : "Visitor contact is provisionally once or twice a week, respecting individual preferences."}
               </p>
             </div>
             {historyList(detail.contacts, "contacts")}
@@ -1149,23 +1499,48 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             )}
           </section>
         )}
-        {tab === "attendance" && (
+        {tab === "membership" && (
           <section className="vj-panel">
             <div className="vj-panel-head">
               <div>
                 <h2>Church attendance evidence</h2>
                 <p>
-                  {person.service_count} of 2 qualifying services recorded. Home
-                  Cell and CFC are separate.
+                  {person.service_count} church visit(s) recorded. Home Cell and
+                  CFC are separate.
                 </p>
               </div>
               <div className="vj-actions">
                 {own && button("attendance", "Add attendance", false)}
+                {own &&
+                  button(
+                    "previous_visit",
+                    "Previous visit · exact date unknown",
+                  )}
+                {caps?.coordinator &&
+                  (detail.previous_visits || []).some((x) => !x.voided_at) &&
+                  button("void_previous_visit", "Correct confirmation")}
                 {caps?.coordinator &&
                   (!joined || caps?.administrator) &&
                   button("void_attendance", "Correct entry")}
               </div>
             </div>
+            {(detail.previous_visits || []).map((x) => (
+              <div className="vj-inset" key={x.id}>
+                <Badge tone={x.voided_at ? "red" : "green"}>
+                  {x.voided_at
+                    ? "Voided confirmation"
+                    : "Previous visit confirmed · exact date unknown"}
+                </Badge>
+                <p>
+                  Known to have visited before {date(x.known_before)}.{" "}
+                  {x.evidence}
+                </p>
+                <small>
+                  Source: {pretty(x.source)} · Recorded{" "}
+                  {date(x.recorded_at, true)}
+                </small>
+              </div>
+            ))}
             {historyList(detail.attendance, "attendance")}
           </section>
         )}
@@ -1192,7 +1567,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                     pretty(person.intention) +
                     ". Eligibility: " +
                     person.service_count +
-                    " / 2 qualifying services."}
+                    " recorded church visit(s). One previous visit is enough."}
               </p>
               <div className="vj-actions">
                 {caps?.coordinator &&
@@ -1205,7 +1580,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                     "join",
                     "Confirm joined",
                     false,
-                    person.service_count < 2,
+                    !person.previous_visit_confirmed &&
+                      (!person.first_visit_on ||
+                        person.first_visit_on >= today()),
                   )}
                 {caps?.administrator &&
                   person.membership_review &&
@@ -1222,10 +1599,29 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </div>
           </section>
         )}
-        {(tab === "cfc" || tab === "followthrough") && (
-          <div className="vj-track-grid">{tracks(tab)}</div>
+        {(tab === "membership" || tab === "community") && (
+          <div className="vj-track-grid">
+            {tracks(tab === "membership" ? "cfc" : "followthrough")}
+          </div>
         )}
-        {tab === "history" && (
+        {tab === "community" && (
+          <IntegrationProfile
+            detail={detail}
+            snapshot={snapshot!}
+            own={!!own}
+            action={action}
+          />
+        )}
+        {tab === "community" && (
+          <IntegrationProfile
+            detail={detail}
+            snapshot={snapshot!}
+            own={!!own}
+            action={action}
+            section="care"
+          />
+        )}
+        {tab === "contact" && (
           <div className="vj-grid">
             <section className="vj-panel">
               <div className="vj-panel-head">
@@ -1285,14 +1681,32 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                 <span
                   key={i}
                   className={
-                    detail.cfc_attendance.some((a) => a.week === i + 1)
+                    detail.cfc_attendance.some(
+                      (a) =>
+                        a.week === i + 1 && a.attendance_status !== "absent",
+                    )
                       ? "done"
-                      : ""
+                      : detail.cfc_attendance.some(
+                            (a) =>
+                              a.week === i + 1 &&
+                              a.attendance_status === "absent",
+                          )
+                        ? "missed"
+                        : ""
                   }
                   title={
-                    detail.cfc_attendance.some((a) => a.week === i + 1)
+                    detail.cfc_attendance.some(
+                      (a) =>
+                        a.week === i + 1 && a.attendance_status !== "absent",
+                    )
                       ? "Attendance recorded"
-                      : "Not recorded"
+                      : detail.cfc_attendance.some(
+                            (a) =>
+                              a.week === i + 1 &&
+                              a.attendance_status === "absent",
+                          )
+                        ? "Missed / absent"
+                        : "Not recorded"
                   }
                 >
                   {i + 1}
@@ -1300,7 +1714,18 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               ))}
             </div>
             <p className="vj-hint">
-              {detail.cfc_attendance.length} / 7 weeks recorded.{" "}
+              {
+                detail.cfc_attendance.filter(
+                  (a) => a.attendance_status !== "absent",
+                ).length
+              }{" "}
+              / 7 weeks attended.{" "}
+              {
+                detail.cfc_attendance.filter(
+                  (a) => a.attendance_status === "absent",
+                ).length
+              }{" "}
+              recorded missed classes.{" "}
               {cfc?.completed_on
                 ? "Completed " + date(cfc.completed_on)
                 : "No automatic completion."}
@@ -1309,7 +1734,8 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               <div className="vj-class-dates">
                 {detail.cfc_attendance.map((e) => (
                   <span key={e.week}>
-                    Week {e.week} · {date(e.attended_on)}
+                    Week {e.week} · {date(e.attended_on)} ·{" "}
+                    {e.attendance_status === "absent" ? "Missed" : "Attended"}
                   </span>
                 ))}
               </div>
@@ -1499,6 +1925,15 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           </div>
           <div className="vj-top-controls">
             <button
+              className="vj-find"
+              onClick={() => setPalette(true)}
+              aria-keyshortcuts="/ Control+K Meta+K"
+            >
+              <Icon name="search" />
+              <span>Find a person</span>
+              <kbd aria-hidden="true">/</kbd>
+            </button>
+            <button
               className="vj-theme"
               aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
               aria-pressed={dark}
@@ -1548,342 +1983,370 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             <>
               <div className="vj-page-title">
                 <div>
-                  <span className="vj-eyebrow">VINE BRANCH CHURCH</span>
-                  <h1>{labels[view]}</h1>
+                  <span className="vj-eyebrow">
+                    {view === "overview"
+                      ? new Date().toLocaleDateString("en-GB", {
+                          weekday: "long",
+                          day: "numeric",
+                          month: "long",
+                          year: "numeric",
+                          timeZone: "Africa/Lagos",
+                        })
+                      : "VINE BRANCH CHURCH"}
+                  </span>
+                  <h1>{view === "overview" ? "Today’s care" : labels[view]}</h1>
                   <p>
                     {view === "overview"
-                      ? "A thoughtful next step for every person."
+                      ? overdueCount
+                        ? `${overdueCount} ${overdueCount === 1 ? "person is" : "people are"} overdue for contact. Start there.`
+                        : "Nobody is overdue. Here’s who to contact next."
                       : view === "membership"
                         ? "Prepare, confirm and welcome people into membership."
                         : "Keep every person connected to the care they need."}
                   </p>
                 </div>
-                <span>{date(today())}</span>
+                {caps?.coordinator &&
+                  ["overview", "visitors", "membership"].includes(view) &&
+                  button("direct", "Direct registration", false)}
                 {view === "cfc" &&
                   caps?.foundation &&
                   button("cohort", "Create cohort", false)}
               </div>
-              {view === "overview" && (
+              {view === "reports" ? (
+                <JourneyReports snapshot={snapshot} onPerson={openPerson} />
+              ) : (
                 <>
-                  <section className="vj-hero">
-                    <div>
-                      <span className="vj-eyebrow">
-                        WELCOME TO THE PEOPLE JOURNEY
-                      </span>
-                      <h2>
-                        From a warm welcome
-                        <br />
-                        to a place to belong.
-                      </h2>
-                      <p>
-                        Care that continues beyond the first visit, through
-                        membership and into a growing church family.
-                      </p>
-                    </div>
-                    <div className="vj-sunday">
-                      <Icon name="attendance" />
-                      <span>
-                        NEXT MEMBERSHIP SUNDAY
-                        <strong>{date(nextMembershipSunday())}</strong>
-                        <button onClick={() => navigate("membership")}>
-                          View preparation queue →
-                        </button>
-                      </span>
-                    </div>
-                  </section>
-                  <div className="vj-metrics">
-                    {[
-                      [
-                        "visitors",
-                        "Visitors",
-                        "In the active visitor journey",
-                        "visitors",
-                      ],
-                      [
-                        "unassigned",
-                        "Awaiting a friend",
-                        "Coordinator assignment needed",
-                        "care",
-                      ],
-                      [
-                        "eligible",
-                        "Ready for membership",
-                        "2 qualifying church services",
-                        "membership",
-                      ],
-                      [
-                        "care",
-                        "Continuing care",
-                        "Alongside and after CFC",
-                        "followups",
-                      ],
-                    ].map(([key, label, caption, icon]) => (
-                      <button
-                        key={key}
-                        className="vj-metric"
-                        onClick={() =>
-                          navigate(
-                            key === "eligible"
-                              ? "membership"
-                              : key === "care"
-                                ? "care"
-                                : "visitors",
-                          )
-                        }
-                      >
-                        <span>
-                          {label}
-                          <Icon name={icon} />
-                        </span>
-                        <strong>{stats[key] || 0}</strong>
-                        <small>{caption}</small>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-              {!snapshot.policy.service_types.length &&
-                ["overview", "attendance", "membership"].includes(view) && (
-                  <div className="vj-notice">
-                    Church service eligibility rules await approval. Attendance
-                    can be recorded; it will not qualify anyone automatically.
-                    {caps?.administrator && (
-                      <button onClick={() => action("policy")}>
-                        Review policy →
-                      </button>
-                    )}
-                  </div>
-                )}
-              {view === "cfc" && (
-                <div className="vj-notice">
-                  Seven weeks of classes run alongside care.{" "}
-                  {snapshot.cohorts.length} cohort(s) available.{" "}
-                  {!snapshot.policy.cfc_policy &&
-                    "Completion and certificate rules await church approval."}
-                </div>
-              )}
-              <section className="vj-panel">
-                <div className="vj-panel-head">
-                  <div>
-                    <h2>
-                      {view === "overview"
-                        ? "People to care for next"
-                        : labels[view]}
-                    </h2>
-                    <p>
-                      {view === "overview"
-                        ? `${stats.overdue || 0} people have overdue tasks · ${stats.unassigned || 0} visitors await a friend`
-                        : view === "membership"
-                          ? "Eligibility is not official membership. The Coordinator must confirm actual joining."
-                          : "Select a person to see their complete journey and available actions."}
-                    </p>
-                  </div>
-                  <button
-                    className="vj-icon"
-                    aria-label="Refresh journey"
-                    disabled={loading}
-                    onClick={() => void load()}
-                  >
-                    ↻
-                  </button>
-                </div>
-                {view === "membership" && (
-                  <div className="vj-queue-filter">
-                    <label>
-                      Preparation queue
-                      <select
-                        aria-label="Membership queue"
-                        value={stage}
-                        onChange={(e) => {
-                          setStage(e.target.value);
-                          setPage(0);
-                        }}
-                      >
-                        {[
-                          ["all", "All preparation & joined"],
-                          ["eligible", "Membership eligible"],
-                          ["interested", "Interested"],
-                          ["confirmed", "Confirmed intention"],
-                          ["awaiting", "Awaiting response"],
-                          ["deferred", "Deferred"],
-                          ["did_not_join", "Did not join"],
-                          ["joined", "Officially joined"],
-                        ].map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                )}
-                <form
-                  className="vj-search"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    setSearch(query.trim());
-                    setPage(0);
-                  }}
-                >
-                  <Icon name="search" />
-                  <input
-                    aria-label="Search people by name"
-                    placeholder="Find someone by name…"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    maxLength={120}
-                  />
-                  <button className="vj-secondary" type="submit">
-                    Search
-                  </button>
-                </form>
-                <div className="vj-table-head">
-                  <span>PERSON</span>
-                  <span>JOURNEY STAGE</span>
-                  <span>FOLLOW-THROUGH FRIEND</span>
-                  <span>NEXT STEP</span>
-                </div>
-                {rows.length ? (
-                  rows.map((p) => (
-                    <button
-                      key={p.member_id}
-                      className="vj-person-row"
-                      onClick={() => openPerson(p.member_id)}
-                    >
-                      <span className="vj-person">
-                        <span className="vj-avatar">
-                          {p.name
-                            .split(" ")
-                            .map((x) => x[0])
-                            .slice(0, 2)
-                            .join("")}
-                        </span>
-                        <span>
-                          <strong>{p.name}</strong>
-                          <small>
-                            {p.reported_first_visit
-                              ? "First visit reported " +
-                                date(p.reported_first_visit)
-                              : "Visit date not verified"}
-                          </small>
-                        </span>
-                      </span>
-                      <span>
-                        <Badge
-                          tone={
-                            p.status === "member"
-                              ? "green"
-                              : p.service_count >= 2
-                                ? "purple"
-                                : "blue"
+                  {view === "overview" && (
+                    <div className="vj-metrics vj-metrics-today">
+                      {[
+                        [
+                          "overdue",
+                          "Overdue",
+                          "Past their follow-up time",
+                          "queue",
+                        ],
+                        [
+                          "visitors",
+                          "Visitors in follow-up",
+                          "Open visitor records",
+                          "visitors",
+                        ],
+                        [
+                          "unassigned",
+                          "Awaiting a friend",
+                          "Need a Follow-through Friend",
+                          "visitors",
+                        ],
+                        [
+                          "eligible",
+                          "Ready to join",
+                          "For " + date(nextMembershipSunday()),
+                          "membership",
+                        ],
+                        [
+                          "care",
+                          "Continuing care",
+                          "New members in care",
+                          "care",
+                        ],
+                      ].map(([key, label, caption, target]) => (
+                        <button
+                          key={key}
+                          className={
+                            "vj-metric" +
+                            (key === "overdue" && overdueCount
+                              ? " is-alert"
+                              : "")
+                          }
+                          onClick={() =>
+                            navigate(
+                              target === "queue" ? "overview" : target,
+                              key === "overdue"
+                                ? "overdue"
+                                : key === "unassigned"
+                                  ? "unassigned"
+                                  : key === "eligible"
+                                    ? "eligible"
+                                    : "all",
+                            )
                           }
                         >
-                          {p.status === "member"
-                            ? "Official member"
-                            : p.service_count >= 2
-                              ? "Membership eligible"
-                              : p.service_count + "/2 qualifying services"}
-                        </Badge>
-                        {view === "membership" && (
-                          <small>{pretty(p.intention)}</small>
-                        )}
-                        {p.legacy_member && !p.official_joined_on && (
-                          <small>Joining date needs confirmation</small>
-                        )}
-                      </span>
-                      <span className="vj-worker">
-                        {p.worker_name || "Not assigned"}
-                        {p.assignment_conflict && (
-                          <small>Resolve assignment conflict</small>
-                        )}
-                      </span>
-                      <span className="vj-row-next">
-                        <span>
-                          {p.next_due
-                            ? date(p.next_due, true)
-                            : p.status === "member"
-                              ? "View continuing care"
-                              : !p.assigned_to
-                                ? "Assign a friend"
-                                : "View journey"}
-                          {p.next_due &&
-                            Date.parse(p.next_due) < Date.now() && (
-                              <small className="vj-overdue">
-                                {p.contact_count > 0 ||
-                                Date.parse(p.registered_at) <
-                                  Date.now() - 7 * 86400000
-                                  ? "Overdue"
-                                  : "Needs attention"}
-                              </small>
-                            )}
-                        </span>
-                        <Icon name="arrow" />
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <Empty>
-                    {search
-                      ? "No people match this search."
-                      : view === "membership"
-                        ? "No visitors currently have two qualifying services confirmed."
-                        : "No people in this queue yet. Reviewed guest submissions and existing central records appear here when your role permits."}
-                  </Empty>
-                )}
-                <div className="vj-pagination">
-                  <span>
-                    {snapshot.total === 0
-                      ? "0 people"
-                      : `${page * 30 + 1}–${Math.min((page + 1) * 30, snapshot.total)} of ${snapshot.total} people`}
-                    {loading ? " · Refreshing…" : ""}
-                  </span>
-                  <div>
-                    <button
-                      className="vj-secondary"
-                      disabled={page === 0 || loading}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      Previous
-                    </button>
-                    <button
-                      className="vj-secondary"
-                      disabled={(page + 1) * 30 >= snapshot.total || loading}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              </section>
-              {view === "overview" && (
-                <div className="vj-bottom-cards">
-                  <section className="vj-panel vj-info-card">
-                    <Icon name="cfc" />
-                    <div>
-                      <h2>Foundation for a growing faith</h2>
-                      <p>
-                        Seven-week CFC, attendance and Coordinator-assessed
-                        completion.
-                      </p>
-                      <button onClick={() => navigate("cfc")}>
-                        Open foundation classes →
+                          <span>{label}</span>
+                          <strong>{stats[key] || 0}</strong>
+                          <small>{caption}</small>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {view === "membership" && (
+                    <div className="vj-notice">
+                      A simple list of previous visitors who may want to join.
+                      One previous VBC visit is enough; the Coordinator confirms
+                      actual joining.
+                    </div>
+                  )}
+                  {view === "overview" && (
+                    <div className="vj-queue-filter">
+                      <label>
+                        Today’s queue
+                        <select
+                          aria-label="Today queue"
+                          value={stage}
+                          onChange={(e) => {
+                            setStage(e.target.value);
+                            setPage(0);
+                          }}
+                        >
+                          <option value="all">All next actions</option>
+                          <option value="overdue">Overdue only</option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                  {view === "visitors" && (
+                    <div className="vj-queue-filter">
+                      <label>
+                        Visitor follow-up status
+                        <select
+                          value={
+                            [
+                              "paused",
+                              "inactive",
+                              "declined_contact",
+                              "unassigned",
+                            ].includes(stage)
+                              ? stage
+                              : "all"
+                          }
+                          onChange={(e) => {
+                            setStage(e.target.value);
+                            setPage(0);
+                          }}
+                        >
+                          <option value="all">Visitors in follow-up</option>
+                          <option value="unassigned">Awaiting a friend</option>
+                          <option value="paused">Paused</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="declined_contact">
+                            Declined contact
+                          </option>
+                        </select>
+                      </label>
+                    </div>
+                  )}
+                  {view === "cfc" && (
+                    <div className="vj-notice">
+                      Seven weeks of classes run alongside care.{" "}
+                      {snapshot.cohorts.length} cohort(s) available.{" "}
+                      {!snapshot.policy.cfc_policy &&
+                        "Completion and certificate rules await church approval."}
+                    </div>
+                  )}
+                  <section className="vj-panel" id="vj-queue">
+                    <div className="vj-panel-head">
+                      <div>
+                        <h2>
+                          {view === "overview"
+                            ? "Who to contact next"
+                            : labels[view]}
+                        </h2>
+                        <p>
+                          {view === "overview"
+                            ? `${overdueCount} overdue · ${unassignedCount} ${unassignedCount === 1 ? "visitor awaits" : "visitors await"} a friend`
+                            : view === "membership"
+                              ? "Eligibility is not official membership. The Coordinator must confirm actual joining."
+                              : "Select a person to see their complete journey and available actions."}
+                        </p>
+                      </div>
+                      <button
+                        className="vj-icon"
+                        aria-label="Refresh journey"
+                        disabled={loading}
+                        onClick={() => void load()}
+                      >
+                        ↻
                       </button>
                     </div>
-                  </section>
-                  <section className="vj-panel vj-info-card">
-                    <Icon name="care" />
-                    <div>
-                      <h2>Care that stays connected</h2>
-                      <p>
-                        At least six calendar months from official joining,
-                        during and after classes.
-                      </p>
-                      <button onClick={() => navigate("care")}>
-                        Open continuing care →
+                    {view === "membership" && (
+                      <div className="vj-queue-filter">
+                        <label>
+                          Preparation queue
+                          <select
+                            aria-label="Membership queue"
+                            value={stage}
+                            onChange={(e) => {
+                              setStage(e.target.value);
+                              setPage(0);
+                            }}
+                          >
+                            {[
+                              ["all", "Preparation list"],
+                              ["eligible", "Membership eligible"],
+                              ["interested", "Interested"],
+                              ["invited", "Contacted / invited"],
+                              ["confirmed", "Confirmed intention"],
+                              ["awaiting", "Awaiting response"],
+                              ["deferred", "Deferred"],
+                              ["did_not_join", "Did not join"],
+                              ["joined", "Officially joined"],
+                            ].map(([value, label]) => (
+                              <option key={value} value={value}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                    )}
+                    <form
+                      className="vj-search"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        setSearch(query.trim());
+                        setPage(0);
+                      }}
+                    >
+                      <Icon name="search" />
+                      <input
+                        aria-label="Search people by name"
+                        placeholder="Find someone by name…"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        maxLength={120}
+                      />
+                      <button className="vj-secondary" type="submit">
+                        Search
                       </button>
+                    </form>
+                    <div className="vj-table-head">
+                      <span>PERSON</span>
+                      <span>JOURNEY STAGE</span>
+                      <span>FOLLOW-THROUGH FRIEND</span>
+                      <span>NEXT STEP</span>
+                    </div>
+                    {rows.length ? (
+                      rows.map((p) => (
+                        <div key={p.member_id} className="vj-queue-row">
+                          <button
+                            className="vj-person-row"
+                            onClick={() => openPerson(p.member_id)}
+                          >
+                            <span className="vj-person">
+                              <span className="vj-avatar">
+                                {p.name
+                                  .split(" ")
+                                  .map((x) => x[0])
+                                  .slice(0, 2)
+                                  .join("")}
+                              </span>
+                              <span>
+                                <strong>{p.name}</strong>
+                                <small>
+                                  {p.reported_first_visit
+                                    ? "First visit reported " +
+                                      date(p.reported_first_visit)
+                                    : "Visit date not verified"}
+                                </small>
+                              </span>
+                            </span>
+                            <span>
+                              <Badge
+                                tone={
+                                  p.status === "member"
+                                    ? "green"
+                                    : (p.membership_eligible ??
+                                        p.service_count >= 1)
+                                      ? "purple"
+                                      : "blue"
+                                }
+                              >
+                                {p.status === "member"
+                                  ? "Official member"
+                                  : (p.membership_eligible ??
+                                      p.service_count >= 1)
+                                    ? "Membership eligible"
+                                    : "Previous visit not recorded"}
+                              </Badge>
+                              {view === "membership" && (
+                                <small>{pretty(p.intention)}</small>
+                              )}
+                              {p.legacy_member && !p.official_joined_on && (
+                                <small>Joining date needs confirmation</small>
+                              )}
+                            </span>
+                            <span className="vj-worker">
+                              {view === "ministry"
+                                ? `${p.ministry_count || 0} active team(s)`
+                                : view === "home_cells"
+                                  ? p.home_cell_name || "Not recorded"
+                                  : p.worker_name || "Not assigned"}
+                              {p.assignment_conflict && (
+                                <small>Resolve assignment conflict</small>
+                              )}
+                            </span>
+                            <span className="vj-row-next">
+                              <span>
+                                {p.next_due
+                                  ? date(p.next_due, true)
+                                  : p.status === "member"
+                                    ? "View continuing care"
+                                    : !p.assigned_to
+                                      ? "Assign a friend"
+                                      : "View journey"}
+                                {p.next_due &&
+                                  Date.parse(p.next_due) < Date.now() && (
+                                    <small className="vj-overdue">
+                                      {p.contact_count > 0 ||
+                                      Date.parse(p.registered_at) <
+                                        Date.now() - 7 * 86400000
+                                        ? "Overdue"
+                                        : "Needs attention"}
+                                    </small>
+                                  )}
+                              </span>
+                              <Icon name="arrow" />
+                            </span>
+                          </button>
+                          {rowActions(p)}
+                        </div>
+                      ))
+                    ) : (
+                      <Empty>
+                        {search
+                          ? "No people match this search."
+                          : view === "membership"
+                            ? "No people in this preparation view yet. One previous VBC visit is enough to be eligible."
+                            : "No people in this queue yet. Reviewed guest submissions and existing central records appear here when your role permits."}
+                      </Empty>
+                    )}
+                    <div className="vj-pagination">
+                      <span>
+                        {snapshot.total === 0
+                          ? "0 people"
+                          : `${page * 30 + 1}–${Math.min((page + 1) * 30, snapshot.total)} of ${snapshot.total} people`}
+                        {loading ? " · Refreshing…" : ""}
+                      </span>
+                      <div>
+                        <button
+                          className="vj-secondary"
+                          disabled={page === 0 || loading}
+                          onClick={() => setPage((p) => p - 1)}
+                        >
+                          Previous
+                        </button>
+                        <button
+                          className="vj-secondary"
+                          disabled={
+                            (page + 1) * 30 >= snapshot.total || loading
+                          }
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          Next
+                        </button>
+                      </div>
                     </div>
                   </section>
-                </div>
+                </>
               )}
             </>
           )}
@@ -1924,6 +2387,23 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           <span>More</span>
         </button>
       </nav>
+      <CommandPalette
+        open={palette}
+        onClose={() => setPalette(false)}
+        onPerson={(id) => {
+          setView((v) => (v === "reports" ? "overview" : v));
+          openPerson(id);
+        }}
+        sections={Object.entries(labels)
+          .filter(
+            ([key]) =>
+              !caps ||
+              caps.coordinator ||
+              caps.friend ||
+              ["overview", "cfc", "care"].includes(key),
+          )
+          .map(([key, label]) => ({ key, label, go: () => navigate(key) }))}
+      />
       {toast && (
         <div className="vj-toast" role="status">
           <Icon name="check" />

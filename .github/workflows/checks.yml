@@ -28,6 +28,9 @@ jobs:
       - run: npm run test:gateway
       - run: npm run test:gateway-db
       - run: npm run test:journey
+      - run: npm run test:journey:v38
+      - run: npm run test:journey:queues
+      - run: npm run test:whatsapp
       - run: npm run test:home-cell
       - run: npm run test:home-cell:accounts
       - run: npm run test:home-cell:onboarding

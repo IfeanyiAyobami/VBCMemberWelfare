@@ -98,7 +98,7 @@
   line-height: 1.5;
 }
 .hc-brand small {
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 0.22em;
   display: block;
@@ -112,7 +112,7 @@
   margin-top: 5px;
 }
 .hc-nav-label {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.2em;
   color: #aabedb;
   padding: 0 13px 13px;
@@ -162,7 +162,7 @@
 .hc-sidebar-quote small {
   display: block;
   margin: 18px 16px;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 0.35em;
   border-left: 28px solid #f5084c;
   padding-left: 9px;
@@ -171,7 +171,7 @@
   margin-top: auto;
   padding: 15px;
   color: #a8c6f7 !important;
-  font-size: 11px;
+  font-size: 13px;
 }
 .hc-workspace {
   flex: 1;
@@ -212,7 +212,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-profile > span,
 .hc-avatar {
@@ -235,7 +235,7 @@
 .hc-profile small {
   display: block;
   color: var(--hc-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 .hc-content {
   padding: 16px 24px 28px;
@@ -243,7 +243,7 @@
   margin: 0 auto;
 }
 .hc-breadcrumb {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--hc-muted);
   margin-bottom: 12px;
 }
@@ -264,7 +264,7 @@
   margin-bottom: 16px;
 }
 .hc-hero small {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.18em;
   color: #c4d7f7;
 }
@@ -301,7 +301,7 @@
 .hc-hero blockquote small {
   display: block;
   font:
-    9px Poppins,
+    12px Poppins,
     Arial,
     sans-serif;
   letter-spacing: 0.2em;
@@ -326,7 +326,7 @@
 .hc-app label {
   display: block;
   font-weight: 500;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-ink);
 }
 .hc-app :is(input, select, textarea) {
@@ -398,7 +398,7 @@
   min-width: 0;
 }
 .hc-stats article div > span {
-  font-size: 10px;
+  font-size: 13px;
   display: block;
 }
 .hc-stats strong {
@@ -410,7 +410,7 @@
 }
 .hc-stats small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--hc-muted);
   line-height: 1.4;
 }
@@ -438,7 +438,7 @@
   color: var(--hc-ink);
 }
 .hc-panel > header > a {
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-quick-actions {
   display: grid;
@@ -452,22 +452,25 @@
   align-items: center;
   text-align: center;
   padding: 12px;
-  background: #0866f5;
-  color: #fff;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 500;
-}
-.hc-quick-actions a:nth-child(2) {
-  background: #e9093d;
-}
-.hc-quick-actions a:nth-child(3) {
-  background: #08274f;
-}
-.hc-quick-actions a:nth-child(n + 4) {
+  min-height: var(--vb-touch, 44px);
   background: var(--hc-soft);
   color: var(--hc-ink);
   border: 1px solid var(--hc-line);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+/* One primary action: taking attendance */
+.hc-quick-actions a:nth-child(3) {
+  background: var(--vb-primary, #e51b25);
+  border-color: var(--vb-primary, #e51b25);
+  color: #fff;
+}
+/* The sidebar already holds these links on wide screens */
+@media (min-width: 1181px) {
+  .hc-quick-panel {
+    display: none;
+  }
 }
 .hc-overview-grid {
   display: grid;
@@ -486,7 +489,7 @@
   gap: 10px;
   align-items: center;
   margin: 16px 0;
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-bar {
   height: 9px;
@@ -502,7 +505,7 @@
 }
 .hc-muted {
   color: var(--hc-muted) !important;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.8;
 }
 .hc-compliance {
@@ -522,7 +525,7 @@
   font-size: 25px;
 }
 .hc-compliance span {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .hc-status-grid {
@@ -542,7 +545,7 @@
   border-radius: 4px;
   background: #e8f1ff;
   color: #0755bc;
-  font-size: 9px;
+  font-size: 12px;
   line-height: 1.5;
   text-transform: capitalize;
   white-space: nowrap;
@@ -572,11 +575,11 @@
 }
 .hc-person-row b {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
 }
 .hc-person-row small {
   display: block;
-  font-size: 9px;
+  font-size: 12px;
   color: var(--hc-muted);
 }
 .hc-table-wrap {
@@ -586,14 +589,14 @@
 .hc-app table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 10px;
+  font-size: 13px;
   min-width: 570px;
   text-align: left;
 }
 .hc-app th {
   padding: 10px;
   background: var(--hc-soft);
-  font-size: 9px;
+  font-size: 12px;
   color: var(--hc-ink);
   font-weight: 600;
   white-space: nowrap;
@@ -609,7 +612,7 @@
 .hc-app td button {
   min-height: 34px;
   padding: 6px 10px;
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-finance-summary {
   display: grid;
@@ -623,7 +626,7 @@
 }
 .hc-finance-summary span {
   display: block;
-  font-size: 10px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .hc-finance-summary strong {
@@ -698,7 +701,7 @@
   accent-color: #0866f5;
 }
 .hc-checks a {
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-search-form {
   display: flex;
@@ -721,7 +724,7 @@
 }
 .hc-search-results small {
   display: block;
-  font-size: 10px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .hc-app .hc-link-button {
@@ -730,7 +733,7 @@
   padding: 4px;
   min-height: 32px;
   color: var(--hc-blue);
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-attendance-list label {
   display: flex;
@@ -746,7 +749,7 @@
   display: block;
 }
 .hc-attendance-list label small {
-  font-size: 10px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .hc-attendance-list select {
@@ -759,7 +762,7 @@
 .hc-inline-link {
   display: inline-block;
   margin: 16px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .hc-area-grid {
   display: grid;
@@ -783,7 +786,7 @@
 }
 .hc-area-grid > a > div + div {
   padding: 15px;
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-area-grid a span {
   display: block;
@@ -802,7 +805,7 @@
   min-width: 110px;
 }
 .hc-visitor-card .hc-form-row button {
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-correction {
   background: var(--hc-soft);
@@ -832,7 +835,7 @@
   border: 1px solid var(--hc-line);
   border-radius: 7px;
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: 13px;
 }
 .hc-announcement {
   padding: 18px 0;
@@ -840,7 +843,7 @@
 }
 .hc-announcement small {
   color: var(--hc-muted);
-  font-size: 10px;
+  font-size: 13px;
 }
 .hc-announcement h3 {
   font-size: 16px;
@@ -866,7 +869,7 @@
   justify-content: space-between;
   padding: 16px 28px;
   border-top: 1px solid var(--hc-line);
-  font-size: 10px;
+  font-size: 13px;
   color: var(--hc-muted);
 }
 .hc-mobile-nav {
@@ -968,7 +971,7 @@
   }
   .hc-quick-actions a {
     padding: 12px 6px;
-    font-size: 10px;
+    font-size: 13px;
   }
 }
 @media (max-width: 900px) {
@@ -1041,7 +1044,7 @@
     max-width: 180px;
     min-height: 28px !important;
     padding: 5px !important;
-    font-size: 9px !important;
+    font-size: 12px !important;
     margin: 0 !important;
     z-index: 5;
   }
@@ -1049,7 +1052,7 @@
     padding: 12px 12px 80px;
   }
   .hc-breadcrumb {
-    font-size: 9px;
+    font-size: 12px;
     padding-right: 160px;
     min-height: 24px;
   }
@@ -1064,10 +1067,10 @@
     max-width: 280px;
   }
   .hc-hero > div > small {
-    font-size: 8px;
+    font-size: 12px;
   }
   .hc-hero p {
-    font-size: 11px;
+    font-size: 13px;
     max-width: 265px;
   }
   .hc-hero blockquote {
@@ -1081,7 +1084,7 @@
   }
   .hc-filters label {
     min-width: 0;
-    font-size: 10px;
+    font-size: 13px;
   }
   .hc-filters button {
     grid-column: 1/-1;
@@ -1111,13 +1114,13 @@
     width: 18px;
   }
   .hc-stats article div > span {
-    font-size: 9px;
+    font-size: 12px;
   }
   .hc-stats strong {
     font-size: 18px;
   }
   .hc-stats small {
-    font-size: 8px;
+    font-size: 12px;
   }
   .hc-panel {
     padding: 15px 12px;
@@ -1130,7 +1133,7 @@
     grid-template-columns: 1fr 1fr;
   }
   .hc-quick-actions a {
-    font-size: 11px;
+    font-size: 13px;
     min-height: 46px;
     padding: 10px;
   }
@@ -1201,7 +1204,7 @@
   }
   .hc-mobile-nav a,
   .hc-mobile-nav button {
-    font-size: 9px;
+    font-size: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -1221,7 +1224,7 @@
     line-height: 1;
   }
   .hc-footer {
-    font-size: 8px;
+    font-size: 12px;
     padding: 12px 16px 85px;
   }
   .hc-definition {
@@ -1233,7 +1236,7 @@
     overflow-wrap: anywhere;
   }
   .hc-bar-row {
-    font-size: 9px;
+    font-size: 12px;
   }
   .hc-app .hco-hero h1 {
     font-size: 25px;
@@ -1272,7 +1275,7 @@
   margin-top: 12px;
 }
 .hc-leader-actions button {
-  font-size: 10px;
+  font-size: 13px;
   padding: 7px 10px;
   min-height: 36px;
 }
@@ -1290,7 +1293,7 @@
 .hc-audit-event {
   padding: 12px 0;
   border-bottom: 1px solid var(--hc-line);
-  font-size: 11px;
+  font-size: 13px;
 }
 .hc-audit-event summary {
   cursor: pointer;
@@ -1300,7 +1303,7 @@
   display: inline-block;
   margin-left: 12px;
   color: var(--hc-muted);
-  font-size: 9px;
+  font-size: 12px;
 }
 .hc-audit-event > div {
   padding: 12px;
@@ -1328,7 +1331,7 @@
   .hc-mobile-church {
     display: block;
     font:
-      600 10px/1.4 Poppins,
+      600 13px/1.4 Poppins,
       Arial,
       sans-serif;
     letter-spacing: 0.04em;
@@ -1344,7 +1347,7 @@
     max-width: none;
     margin-top: 1px !important;
     width: 100%;
-    font-size: 11px !important;
+    font-size: 13px !important;
     min-height: 34px !important;
     background: #0b2252 !important;
     color: #fff !important;
@@ -1358,7 +1361,7 @@
   .hc-table-wrap:after {
     content: "Scroll horizontally to view all columns";
     display: block;
-    font-size: 9px;
+    font-size: 12px;
     color: var(--hc-muted);
     padding: 8px 0;
   }
@@ -1405,7 +1408,7 @@
 }
 .hc-app .hc-brand small {
   font-family: Poppins, Arial, sans-serif;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.19em;
 }
 .hc-app .hc-brand em {

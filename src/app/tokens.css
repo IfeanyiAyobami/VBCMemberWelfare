@@ -1,0 +1,80 @@
+/*
+ * VBC Member Care — shared design tokens (v4.0)
+ *
+ * One source of truth for colour, type and shape across Church Office,
+ * Follow-ups, Members/Guests and Home Cell Office. Module stylesheets map
+ * their own variables onto these instead of declaring hex values.
+ *
+ * Rules: one primary colour (church red) for the single main action in a
+ * view; body text 14px; nothing smaller than 12px; 44px touch targets.
+ */
+:root {
+  /* Brand */
+  --vb-primary: #e51b25;
+  --vb-primary-hover: #c8141d;
+  --vb-on-primary: #ffffff;
+  --vb-navy: #000956;
+
+  /* Light surfaces */
+  --vb-bg: #f5f6fb;
+  --vb-surface: #ffffff;
+  --vb-surface-2: #eef0fa;
+  --vb-line: #e3e6ef;
+  --vb-line-strong: #c9cde0;
+  --vb-fg: #12163f;
+  --vb-muted: #5a6080;
+  --vb-link: #1f3fb8;
+  --vb-focus: #3d63e0;
+
+  /* Status (text on tinted fill, AA on both) */
+  --vb-overdue-fg: #a50f17;
+  --vb-overdue-bg: #fff1f0;
+  --vb-today-fg: #854d0e;
+  --vb-today-bg: #fef3c7;
+  --vb-ok-fg: #166534;
+  --vb-ok-bg: #dcfce7;
+  --vb-info-fg: #1e3a8a;
+  --vb-info-bg: #e5edff;
+  --vb-ready-fg: #3b2a99;
+  --vb-ready-bg: #ece8ff;
+
+  /* Type scale */
+  --vb-font: Poppins, system-ui, sans-serif;
+  --vb-display: Anton, Impact, sans-serif;
+  --vb-text-xs: 12px; /* labels, badges — the floor */
+  --vb-text-sm: 13px; /* meta, captions */
+  --vb-text-md: 14px; /* body, buttons */
+  --vb-text-lg: 16px; /* emphasised body */
+  --vb-text-xl: 18px; /* section titles */
+  --vb-text-2xl: 26px; /* person names */
+  --vb-text-display: 40px; /* page titles (Anton) */
+
+  /* Shape */
+  --vb-radius-sm: 8px;
+  --vb-radius: 12px;
+  --vb-radius-lg: 16px;
+  --vb-touch: 44px;
+}
+
+[data-theme="dark"] {
+  --vb-bg: #000956;
+  --vb-surface: #0f0f59;
+  --vb-surface-2: #1c1c6b;
+  --vb-line: #303077;
+  --vb-line-strong: #4a4aa0;
+  --vb-fg: #f5f5ff;
+  --vb-muted: #b9b9db;
+  --vb-link: #b8caff;
+  --vb-focus: #9ab4ff;
+
+  --vb-overdue-fg: #ffb3ad;
+  --vb-overdue-bg: #3a1020;
+  --vb-today-fg: #fde68a;
+  --vb-today-bg: #2e2a12;
+  --vb-ok-fg: #a7f3d0;
+  --vb-ok-bg: #0f3b3a;
+  --vb-info-fg: #cfe0ff;
+  --vb-info-bg: #1c2d73;
+  --vb-ready-fg: #d9cfff;
+  --vb-ready-bg: #2b2470;
+}

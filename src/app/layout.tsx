@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { themeBootstrap } from "@/lib/theme.js";
+import "./tokens.css";
 import "./globals.css";
 import "./themes.css";
 import "./premium.css";

@@ -1,9 +1,9 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.8.1",
+  "version": "0.11.1",
   "private": true,
   "type": "module",
-  "description": "Vine Branch Member Care \u2014 Visitor Journey v3.7 and Home Cell leadership dialog theme fix",
+  "description": "VBC Member Care v4.0.1 \u2014 refined UI, safe search and accurate care queues",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -27,7 +27,10 @@
     "test:home-cell:accounts": "node --experimental-strip-types tests/home-cell-account-validation.mjs",
     "test:home-cell:onboarding": "node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/home-cell-onboarding-validation.mjs",
     "test:reliability": "node --experimental-strip-types tests/origin-validation.mjs && node --experimental-strip-types tests/reliability.mjs && node tests/rate-limits.mjs",
-    "test:journey": "node tests/journey-database.mjs && node --experimental-strip-types tests/journey-calendar.mjs && node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/journey-intake-defaults.mjs"
+    "test:journey": "node tests/journey-database.mjs && node --experimental-strip-types tests/journey-calendar.mjs && node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/journey-intake-defaults.mjs",
+    "test:journey:v38": "node tests/journey-v38-database.mjs && node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/journey-report-export.mjs",
+    "test:whatsapp": "node tests/whatsapp-database.mjs && node --experimental-strip-types tests/whatsapp-core.mjs",
+    "test:journey:queues": "node tests/journey-queue-database.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

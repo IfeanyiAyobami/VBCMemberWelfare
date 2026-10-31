@@ -1,3 +1,21 @@
+# Current release: v4.0.1 UI corrections
+
+Start with [VBC_v4.0.1_FIXES.md](VBC_v4.0.1_FIXES.md). Your v4.0 design is preserved. Apply **021 after 020** before deploying this source. Fixes stale command-search results, paused outreach shortcuts, dashboard queue filters and the pinned phone action bar. No new environment variables or production dependencies.
+
+# Current release: v4.0 UI refresh
+
+Read [VBC_v4.0_UI_REFRESH.md](VBC_v4.0_UI_REFRESH.md). No SQL. Deploy this source over v3.9.
+
+# Previous release: v3.9 WhatsApp invitations
+
+Read [VBC_v3.9_WHATSAPP_SETUP.md](VBC_v3.9_WHATSAPP_SETUP.md). Apply **020 after 019**, then deploy this source. Open a person's Follow-ups profile → **WhatsApp invitations**. Staff-assisted sending works without Meta credentials. Official API sending requires production Meta configuration, explicit WhatsApp permission and an approved image template; it is disabled by default. Your supplied Sunday flyer appears first. Existing Member Care/Home Cell/WordPress flows are preserved.
+
+# Current release: v3.8 Member Care integration and reporting
+
+Start with [VBC_v3.8_SETUP.md](VBC_v3.8_SETUP.md). Apply **018 then 019** after your existing 017, then deploy this source. One previous VBC visit permits explicit joining; registration alone does not. Includes direct staff registration, visitor purpose/state, ministry history, existing Home Cell links and Excel/CSV reporting. Validation is in [VBC_v3.8_VALIDATION.md](VBC_v3.8_VALIDATION.md).
+
+Earlier release notes below are historical; the v3.8 guide supersedes their eligibility rules.
+
 # Latest correction: v3.7.1 Custom dark palette
 
 Dark canvas/sidebar: **#000956**; cards: **#0f0f59**; text: **#f5f5ff**; muted text: **#b9b9db**; borders: **#303077**. Reuses migration 017; no additional SQL is required for this colour correction.
@@ -50,9 +68,9 @@ The entire dashboard now starts in dark mode, using the supplied VBC Sermons scr
 
 | Area | Dark theme colour |
 | --- | --- |
-| Page background | `#040451` |
+| Page background | `#000956` |
 | Cards | `#0F0F59` |
-| Sidebar | `#170059` |
+| Sidebar | `#000956` |
 | Headings | `#F5F5FF` |
 | Secondary text | `#B9B9DB` |
 | Main controls | `#E51B25` red, adjusted for readable white labels |

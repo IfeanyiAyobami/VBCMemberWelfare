@@ -1,4 +1,5 @@
 "use client";
+import MemberIntegration from "./MemberIntegration";
 
 import {
   useCallback,
@@ -812,6 +813,7 @@ function MemberProfile({
   );
   return (
     <>
+      <MemberIntegration memberId={member.id} />
       <div className="profile-hero">
         <span className="avatar large">{initials(member)}</span>
         <div>

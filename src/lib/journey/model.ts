@@ -12,7 +12,16 @@ export type JourneyPerson = {
   legacy_member: boolean;
   assignment_conflict: boolean;
   membership_review: boolean;
+  registration_source: string;
+  direct_registered_at: string | null;
+  visit_purpose: string;
+  followup_state: string;
+  ministry_count: number;
+  home_cell_name: string | null;
   service_count: number;
+  first_visit_on: string | null;
+  membership_eligible: boolean;
+  previous_visit_confirmed: boolean;
   contact_count: number;
   registered_at: string;
   reported_first_visit: string | null;
@@ -43,6 +52,7 @@ export type Entry = {
   due_at?: string;
   week?: number;
   attended_on?: string;
+  attendance_status?: string;
   action?: string;
   actor_name?: string;
   detail?: Record<string, unknown>;
@@ -66,6 +76,40 @@ export type JourneyDetail = {
     certificate_number: string | null;
   };
   cfc_attendance: Entry[];
+  previous_visits: {
+    id: string;
+    known_before: string;
+    source: string;
+    evidence: string;
+    recorded_at: string;
+    voided_at: string | null;
+  }[];
+  ministry: {
+    id: string;
+    team_name: string;
+    responsibility: string;
+    joined_on: string | null;
+    left_on: string | null;
+    active: boolean;
+  }[];
+  home_cells: {
+    id: string;
+    cell_id: string;
+    cell_name: string;
+    area_name: string;
+    active: boolean;
+    joined_at: string;
+    left_at: string | null;
+  }[];
+  home_transfers: {
+    id: string;
+    status: string;
+    reason: string;
+    requested_at: string;
+    decided_at: string | null;
+    decision_reason: string | null;
+  }[];
+  welfare: { id: string; note: string; actor: string; created_at: string }[];
 };
 export type JourneySnapshot = {
   items: JourneyPerson[];
@@ -98,6 +142,14 @@ export const outcomes = {
   no_further_contact: "Requested no further contact",
 };
 export const actions = [
+  "previous_visit",
+  "void_previous_visit",
+  "direct",
+  "purpose",
+  "followup_state",
+  "support",
+  "ministry_add",
+  "ministry_end",
   "assign",
   "contact",
   "attendance",
@@ -138,3 +190,24 @@ export function nextMembershipSunday(today = new Date()): string {
   if (d.getUTCDate() < day) d = last(year, month + 1);
   return d.toISOString().slice(0, 10);
 }
+
+export const visitPurposes: Record<string, string> = {
+  exploring: "Exploring VBC / church family",
+  membership_interest: "Interested in membership",
+  special_occasion: "Special occasion / thanksgiving",
+  another_church: "Visiting from another church",
+  temporary: "Temporarily in town",
+  undecided: "Undecided",
+  other: "Other",
+  not_specified: "Not specified",
+};
+export type ReportRow = Record<string, unknown>;
+export type JourneyReport = {
+  from: string;
+  to: string;
+  total: number;
+  rows: ReportRow[];
+  scoreboard: Record<string, number | null>;
+  definitions: Record<string, string>;
+  generated_at: string;
+};

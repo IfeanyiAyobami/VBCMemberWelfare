@@ -43,6 +43,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|assets/|api/intake/wordpress|api/integrations/wordpress/first-timers|favicon.ico|robots.txt).*)",
+    "/((?!_next/static|_next/image|assets/|api/whatsapp/webhook|api/intake/wordpress|api/integrations/wordpress/first-timers|favicon.ico|robots.txt).*)",
   ],
 };

@@ -820,7 +820,6 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               aria-label={titles[section]}
               aria-busy={loading || busy}
             >
-              {section === "overview" && (data.churchAdmin || data.assignments.some(a=>a.role === 'coordinator')) && <MemberTransfers onChanged={load} />}
               {section === "overview" && (
                 <>
                   <Stats
@@ -854,7 +853,10 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                       },
                     ]}
                   />
-                  <Panel title="Quick Actions">
+                  {(data.churchAdmin || data.assignments.some((a) => a.role === "coordinator")) && (
+                    <MemberTransfers onChanged={load} hideWhenEmpty />
+                  )}
+                  <Panel title="Quick Actions" className="hc-quick-panel">
                     <div className="hc-quick-actions">
                       {(
                         [

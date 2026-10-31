@@ -1,11 +1,12 @@
 "use client";
 import {useCallback,useEffect,useState} from "react";
 type Transfer={id:string;member_name:string;target_name:string;source_names:string;status:string;reason:string;requested_at:string;decision_reason:string|null;can_move:boolean;can_keep:boolean};
-export default function MemberTransfers({onChanged}:{onChanged?:()=>Promise<void>}){
+export default function MemberTransfers({onChanged,hideWhenEmpty=false}:{onChanged?:()=>Promise<void>;hideWhenEmpty?:boolean}){
  const [items,setItems]=useState<Transfer[]>([]),[page,setPage]=useState(1),[more,setMore]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[reasons,setReasons]=useState<Record<string,string>>({});
  const load=useCallback(async()=>{try{const r=await fetch('/api/home-cell/transfers?page='+page,{cache:'no-store'});const j=await r.json();if(!r.ok)throw Error(j.message);setItems(j.items||[]);setMore(j.has_more);setError('');}catch(e){setError(e instanceof Error?e.message:'Transfer inbox unavailable.');}},[page]);
  useEffect(()=>{void load();const update=()=>void load();window.addEventListener('hco-transfer-updated',update);return()=>window.removeEventListener('hco-transfer-updated',update);},[load]);
  async function decide(t:Transfer,decision:string){if(!confirm(decision==='moved'?'Approve this move? Previous active cell assignments will end.':'Keep the current home cell and close this request?'))return;setBusy(true);try{const r=await fetch('/api/home-cell/transfers',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:t.id,decision,reason:reasons[t.id]||''})});const j=await r.json();if(!r.ok)throw Error(j.message);await load();await onChanged?.();}catch(e){setError(e instanceof Error?e.message:'Decision failed.');}finally{setBusy(false);}}
+ if(hideWhenEmpty&&!items.length&&!error&&page===1)return null;
  return <section className="hc-panel" id="member-transfer-inbox"><header><h2>Home Cell Transfer Requests</h2><button type="button" className="hc-secondary" disabled={busy} onClick={()=>void load()}>Refresh requests</button></header>
  <p className="hc-muted">Members stay in their current home cell until an approved move. Coordinators review their areas; cross-area moves require an administrator unless the coordinator manages both areas.</p>
  {error&&<p className="hc-alert" role="alert">{error}</p>}{!items.length&&!error&&<p>No transfer requests.</p>}
