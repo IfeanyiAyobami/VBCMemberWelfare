@@ -20,7 +20,7 @@ export default function CareApp({ staff }: { staff: StaffIdentity }) {
       administrator: "Administrator",
       editor: "Editor",
       viewer: "Viewer",
-      followup_worker: "Follow-up Worker",
+      followup_worker: "Follow Through Worker",
     };
 
     function showIdentity(identity: StaffIdentity) {
@@ -137,7 +137,7 @@ export default function CareApp({ staff }: { staff: StaffIdentity }) {
       const text = bar.querySelector("p");
       if (text)
         text.textContent =
-          "This screen uses sample records · The Members directory is saved · Messaging is paused";
+          "Members, programmes and celebrations use saved records. Campaign scheduling remains a preview.";
     }
 
     async function logout(event: MouseEvent) {

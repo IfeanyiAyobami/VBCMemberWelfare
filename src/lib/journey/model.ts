@@ -1,4 +1,11 @@
 export type JourneyPerson = {
+  gender?: string | null;
+  date_on_board?: string | null;
+  cfc_cohort?: string | null;
+  cfc_enrolled_on?: string | null;
+  cfc_completed_on?: string | null;
+  certificate_number?: string | null;
+  cfc_weeks?: {week:number;status:string;date:string|null}[];
   member_id: string;
   version: number;
   name: string;
@@ -209,5 +216,6 @@ export type JourneyReport = {
   rows: ReportRow[];
   scoreboard: Record<string, number | null>;
   definitions: Record<string, string>;
+  friend_summary?: Record<string, string | number | null>[];
   generated_at: string;
 };

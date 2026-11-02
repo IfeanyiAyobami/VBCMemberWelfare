@@ -706,7 +706,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               </h1>
               <p>
                 {section === "visitors"
-                  ? "Capture details, connect them to follow-up, and help them belong."
+                  ? "Capture details, connect them to Follow Through, and help them belong."
                   : "Fellowship, leadership and care — stronger together."}
               </p>
               <i />
@@ -1749,7 +1749,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                       name="contact_consent"
                                       defaultChecked
                                     />
-                                    May be contacted for follow-up and church
+                                    May be contacted for Follow Through and church
                                     activities
                                   </label>
                                   <label>
@@ -1838,7 +1838,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                               onSubmit={submit("followup", { visit_id: v.id })}
                             >
                               <label>
-                                Follow-up status
+                                Follow Through status
                                 <select
                                   name="status"
                                   defaultValue={v.followup_status}

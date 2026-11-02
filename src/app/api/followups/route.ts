@@ -19,9 +19,9 @@ export async function GET(request:NextRequest){
   const rpc=action==="staff"?"care_followup_staff":action==="history"?"care_followup_history":"care_followup_list";
   if(!["list","staff","history"].includes(action)) return authJSON({message:"Invalid request"},400);
   const {data,error}=await supabase.rpc(rpc,action==="history"?{p_followup_id:id}:{});
-  if(error) return authJSON({message:"Unable to load follow-ups. Check migration and permissions."},error.code==="42501"?403:503);
+  if(error) return authJSON({message:"Unable to load Follow Through. Check migration and permissions."},error.code==="42501"?403:503);
   return authJSON({items:data});
- } catch {return authJSON({message:"Follow-up service unavailable"},503)}
+ } catch {return authJSON({message:"Follow Through service unavailable"},503)}
 }
 export async function POST(request:NextRequest){
  if(!hasSameOrigin(request)) return authJSON({message:"Invalid origin"},403);

@@ -182,7 +182,7 @@ export default function MemberCarePanels({
               </div>
             ))}
             <p className="help-text">
-              Follow-up contact, each channel and each topic are separate
+              Follow Through contact, each channel and each topic are separate
               choices. A greeting or newsletter needs contact permission, its
               channel and its topic. Sending remains paused.
             </p>
@@ -268,12 +268,12 @@ export default function MemberCarePanels({
           </div>
           <div className="card-pad">
             <p className="hint">
-              Keep practical follow-up notes for the care team. All active staff
+              Keep practical Follow Through notes for the care team. All active staff
               roles can read them.
             </p>
             {editable && (
               <form className="care-note-form mt" onSubmit={addNote}>
-                <label htmlFor="care-note-body">Add a follow-up note</label>
+                <label htmlFor="care-note-body">Add a Follow Through note</label>
                 <textarea
                   id="care-note-body"
                   rows={4}
@@ -322,7 +322,7 @@ export default function MemberCarePanels({
                 <>
                   {!notes.items.length && (
                     <div className="care-empty">
-                      <strong>A thoughtful follow-up starts here.</strong>
+                      <strong>A thoughtful Follow Through starts here.</strong>
                       <p className="hint mt">No care notes yet.</p>
                     </div>
                   )}
@@ -575,7 +575,7 @@ function ConsentEditor({
       <form id="consent-form" onSubmit={save} noValidate>
         <p className="hint">
           For {member.first} {member.last}. Record the member’s explicit
-          choices. A follow-up request does not grant newsletter or SMS
+          choices. A Follow Through request does not grant newsletter or SMS
           permission.
         </p>
         {error && (
@@ -591,7 +591,7 @@ function ConsentEditor({
                 <strong>{label}</strong>
                 <small>
                   {key === "contact_consent"
-                    ? "Permission for church contact and follow-up"
+                    ? "Permission for church contact and Follow Through"
                     : key === "email_opt_in"
                       ? "Send approved messages by email"
                       : key === "sms_opt_in"

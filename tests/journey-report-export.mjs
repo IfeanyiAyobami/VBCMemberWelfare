@@ -77,13 +77,13 @@ with zipfile.ZipFile(sys.argv[1]) as z:
   if n.endswith('.xml') or n.endswith('.rels'): E.fromstring(z.read(n))
  ns={'s':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
  wb=E.fromstring(z.read('xl/workbook.xml'))
- assert len(wb.find('s:sheets',ns))==6
+ assert len(wb.find('s:sheets',ns))==7
  for n in z.namelist():
   if n.startswith('xl/worksheets/'):
    root=E.fromstring(z.read(n)); assert not root.findall('.//s:f',ns)
- assert b'Choir &amp; Media' in z.read('xl/worksheets/sheet5.xml')
+ assert b'Choir &amp; Media' in z.read('xl/worksheets/sheet6.xml')
  assert b'Not available' in z.read('xl/worksheets/sheet1.xml')
- print('PASS XLSX CRC, OOXML relationships, six readable sheets, literal cell strings, unknown values and XML escaping')`,
+ print('PASS XLSX CRC, OOXML relationships, seven readable sheets, literal cell strings, unknown values and XML escaping')`,
     file,
   ],
   { encoding: "utf8" },

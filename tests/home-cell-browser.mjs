@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {programmeMock,runV41Browser} from "./v41-browser.mjs";
 import {whatsappMock,runWhatsAppBrowser} from "./whatsapp-browser.mjs";
 import {journeyMock,runJourneyBrowser} from "./journey-browser.mjs";
 import { createServer } from "node:http";
@@ -160,6 +161,7 @@ const mock = createServer(async (req, res) => {
   const auth = tokens.get(
     (req.headers.authorization || "").replace(/^Bearer /i, ""),
   );
+  if (await programmeMock(req,res,url,auth,json)) return;
   if (await whatsappMock(req,res,url,auth,json)) return;
   if (await journeyMock(req,res,url,auth,json)) return;
   if (
@@ -1153,6 +1155,7 @@ try {
   );
   await runJourneyBrowser(page,origin);
   await runWhatsAppBrowser(page,origin);
+  await runV41Browser(page,origin);
   await page.goto(origin + "/home-cell");
   const uid = (n) => "00000000-0000-4000-8000-" + String(n).padStart(12, "0");
   const area = { id: uid(10), name: "Total Garden/Mokola" };

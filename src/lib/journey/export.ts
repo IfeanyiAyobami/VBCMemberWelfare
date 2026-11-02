@@ -38,7 +38,7 @@ export const reportColumns: [string, string][] = [
   ["email", "Email (current permissions)"],
   ["worker_name", "Assigned friend (current)"],
   ["visit_purpose", "Visitor purpose"],
-  ["followup_state", "Follow-up status (current)"],
+  ["followup_state", "Follow Through status (current)"],
   ["intention", "Membership interest (current)"],
   ["joined_by_period_end", "Official membership date by period end"],
   ["attempts_in_period", "Contact attempts in period"],
@@ -230,6 +230,10 @@ export function reportXlsx(report: JourneyReport): Buffer {
   const sheets: [string, unknown[][]][] = [
     ["Scoreboard", score],
     ["People", people],
+    ["Friends analysis", [
+      ["Assigned Friend", "People in report", "Joined by period end", "Contact attempts in period", "Conversations in period", "Overdue now", "CFC enrolled now"],
+      ...(report.friend_summary || []).map(r=>['friend','people','joined_by_period_end','contact_attempts','conversations','overdue_now','cfc_enrolled_now'].map(k=>r[k]??'Not recorded')),
+    ]],
     [
       "Contacts",
       history("followup_outcomes", [

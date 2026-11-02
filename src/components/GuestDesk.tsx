@@ -974,7 +974,7 @@ function GuestReview({
                   )}
                   {guest.status === "unlinked" && (
                     <p className="hint mt">
-                      This older card needs administrator follow-up. It cannot
+                      This older card needs administrator Follow Through. It cannot
                       be processed as a new pending card.
                     </p>
                   )}

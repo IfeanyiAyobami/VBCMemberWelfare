@@ -157,7 +157,7 @@ export function validateGuest(
       errors[key] = "Choose a valid month and day; February 29 is allowed.";
   if (!v.contact_consent)
     errors.contact_consent =
-      "The guest card requires permission for visit follow-up.";
+      "The guest card requires permission for visit Follow Through.";
   return Object.keys(errors).length
     ? { ok: false, errors }
     : { ok: true, value: v };

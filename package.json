@@ -1,9 +1,9 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "private": true,
   "type": "module",
-  "description": "VBC Member Care v4.0.1 \u2014 refined UI, safe search and accurate care queues",
+  "description": "VBC Member Care v4.1 \u2014 Follow Through registers and saved programmes",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -30,7 +30,8 @@
     "test:journey": "node tests/journey-database.mjs && node --experimental-strip-types tests/journey-calendar.mjs && node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/journey-intake-defaults.mjs",
     "test:journey:v38": "node tests/journey-v38-database.mjs && node --experimental-strip-types --loader ./tests/resolve-ts.mjs tests/journey-report-export.mjs",
     "test:whatsapp": "node tests/whatsapp-database.mjs && node --experimental-strip-types tests/whatsapp-core.mjs",
-    "test:journey:queues": "node tests/journey-queue-database.mjs"
+    "test:journey:queues": "node tests/journey-queue-database.mjs",
+    "test:v41": "node tests/v41-database.mjs && node --experimental-strip-types tests/v41-intake.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

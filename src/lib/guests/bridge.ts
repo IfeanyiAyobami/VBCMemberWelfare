@@ -22,4 +22,4 @@ export function validBridgeSignature(
   return timingSafeEqual(expected, Buffer.from(signature.slice(7), "hex"));
 }
 export const WORDPRESS_EVIDENCE =
-  "Elementor guest journey v0.6.0. The guest selected visit and follow-up contact permission. Email, SMS, celebrations, programmes and newsletter choices were submitted as separate unchecked-by-default controls. Stored booleans record the selected choices.";
+  "Elementor guest journey v0.6.0. The guest selected visit and Follow Through contact permission. Email, SMS, celebrations, programmes and newsletter choices were submitted as separate unchecked-by-default controls. Stored booleans record the selected choices.";

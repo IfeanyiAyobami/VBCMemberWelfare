@@ -1,3 +1,9 @@
+# VBC Member Care v4.1
+
+Start with [VBC_v4_1_SETUP.md](VBC_v4_1_SETUP.md). This release adds Follow Through registers, Friend registration and CSV import, persistent programmes, flyer uploads and recurring weekly services. Run migrations 022–024 before deploying. The illustrated staff manual is in `docs/`.
+
+The notes below describe earlier releases. The v4.1 guide takes precedence for the changed features.
+
 # Current release: v4.0.1 UI corrections
 
 Start with [VBC_v4.0.1_FIXES.md](VBC_v4.0.1_FIXES.md). Your v4.0 design is preserved. Apply **021 after 020** before deploying this source. Fixes stale command-search results, paused outreach shortcuts, dashboard queue filters and the pinned phone action bar. No new environment variables or production dependencies.

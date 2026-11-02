@@ -1,7 +1,7 @@
 import type { MemberRecord } from "./model";
 
 export const PREFERENCE_LABELS = {
-  contact_consent: "Visit and follow-up contact",
+  contact_consent: "Visit and Follow Through contact",
   email_opt_in: "Email",
   sms_opt_in: "SMS",
   celebrations_opt_in: "Birthday and anniversary greetings",

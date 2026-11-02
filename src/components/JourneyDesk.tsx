@@ -21,6 +21,8 @@ import {
 import "./journey.css";
 import WhatsAppInvitations from "./WhatsAppInvitations";
 import CommandPalette from "./CommandPalette";
+import JourneyImport from "./JourneyImport";
+import JourneyRegister from "./JourneyRegister";
 import {
   DirectRegistrationFields,
   IntegrationProfile,
@@ -28,26 +30,27 @@ import {
 } from "./JourneyExtensions";
 const labels: Record<string, string> = {
   overview: "Today",
+  register: "People register",
   visitors: "Visitors",
-  followups: "Follow-ups",
+  followups: "Contact queue",
   attendance: "Church attendance",
   membership: "Membership Sunday",
-  care: "Follow-through",
+  care: "Continuing care",
   cfc: "Foundation classes",
   ministry: "Ministry involvement",
   home_cells: "Home Cell integration",
-  reports: "Reports & scoreboard",
+  reports: "Reports & Friends analysis",
 };
 const actionNames: Record<string, string> = {
-  direct: "Direct membership registration",
+  direct: "Register a person",
   previous_visit: "Record a known previous visit",
   void_previous_visit: "Correct previous-visit confirmation",
   purpose: "Visitor purpose / interest",
-  followup_state: "Follow-up status",
+  followup_state: "Contact status",
   support: "Record a support need",
   ministry_add: "Add ministry involvement",
   ministry_end: "End ministry assignment",
-  assign: "Assign a Follow-through Friend",
+  assign: "Assign a Follow Through Friend",
   contact: "Log a care outcome",
   attendance: "Record church attendance",
   void_attendance: "Correct attendance",
@@ -278,7 +281,8 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     [dark, setDark] = useState(true),
     [menu, setMenu] = useState(false),
     [pending, setPending] = useState<string | null>(null),
-    [palette, setPalette] = useState(false);
+    [palette, setPalette] = useState(false),
+    [importing, setImporting] = useState(false);
   const sequence = useRef(0),
     mounted = useRef(true),
     replay = useRef<{ body: string; id: string } | null>(null),
@@ -292,7 +296,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         page: String(page),
         view:
           (view === "overview" && stage === "overdue") ||
-          ["ministry", "home_cells", "reports"].includes(view)
+          ["register", "ministry", "home_cells", "reports"].includes(view)
             ? "all"
             : view,
         stage,
@@ -680,9 +684,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           <>
             {select(
               "state",
-              "Follow-up status",
+              "Contact status",
               [
-                ["active", "Visitors in follow-up"],
+                ["active", "Visitors receiving care"],
                 ["paused", "Paused"],
                 ["inactive", "Inactive"],
               ],
@@ -740,7 +744,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           <>
             {select(
               "worker",
-              "Follow-through Friend",
+              "Follow Through Friend",
               snapshot.team
                 .filter(
                   (t) =>
@@ -1045,9 +1049,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               snapshot.team.map((t) => [t.id, t.name + " · " + pretty(t.role)]),
             )}
             {select("capability", "Journey capability", [
-              ["coordinator", "Follow-up Coordinator"],
+              ["coordinator", "Follow Through Coordinator"],
               ["foundation", "Foundation Class Coordinator"],
-              ["friend", "Follow-through Friend"],
+              ["friend", "Follow Through Friend"],
             ])}
             {select(
               "enabled",
@@ -1248,7 +1252,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               )}
             </div>
             <p>
-              Follow-through Friend:{" "}
+              Follow Through Friend:{" "}
               <strong>{person.worker_name || "Not assigned"}</strong>
             </p>
           </div>
@@ -1263,7 +1267,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               )}
             {own && button("contact", "Log outcome", false)}
             {own && button("purpose", "Visit purpose")}
-            {own && button("followup_state", "Follow-up status")}
+            {own && button("followup_state", "Contact status")}
             {caps?.coordinator &&
               button(
                 "assign",
@@ -1471,7 +1475,8 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               {detail.tasks.length ? (
                 detail.tasks.map((t) => (
                   <p key={t.id} className="vj-hint">
-                    {pretty(t.kind || "Follow-up")} · {date(t.due_at, true)}
+                    {pretty(t.kind || "Follow Through")} ·{" "}
+                    {date(t.due_at, true)}
                     <br />
                     {t.note}
                   </p>
@@ -1493,7 +1498,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             {historyList(detail.contacts, "contacts")}
             {detail.legacy_contacts.length > 0 && (
               <>
-                <h3 className="vj-inset">Earlier follow-up history</h3>
+                <h3 className="vj-inset">Earlier Follow Through history</h3>
                 {historyList(detail.legacy_contacts, "legacy contacts")}
               </>
             )}
@@ -1793,7 +1798,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </span>
             <h2>Connected for the journey</h2>
             <p>
-              {person.worker_name || "A Follow-through Friend is still needed."}
+              {person.worker_name || "A Follow Through Friend is still needed."}
             </p>
             <div className="vj-care-dates">
               <div>
@@ -1835,7 +1840,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             <small>People. Purpose. Belonging.</small>
           </span>
         </a>
-        <span className="vj-nav-label">THE PEOPLE JOURNEY</span>
+        <span className="vj-nav-label">FOLLOW THROUGH</span>
         <nav aria-label="Visitor journey">
           {Object.entries(labels)
             .filter(
@@ -1950,10 +1955,10 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
               <strong>{staff.display_name}</strong>
               <small>
                 {caps?.coordinator
-                  ? "Follow-up Coordinator"
+                  ? "Follow Through Coordinator"
                   : caps?.foundation
                     ? "Foundation Class Coordinator"
-                    : "Follow-through Friend"}
+                    : "Follow Through Friend"}
               </small>
             </div>
           </div>
@@ -2002,12 +2007,29 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                         : "Nobody is overdue. Here’s who to contact next."
                       : view === "membership"
                         ? "Prepare, confirm and welcome people into membership."
-                        : "Keep every person connected to the care they need."}
+                        : view === "register"
+                          ? "Your working register: people, contact details, membership and assigned Friend."
+                          : view === "cfc"
+                            ? "Choose a person to enrol or record weekly class attendance."
+                            : view === "reports"
+                              ? "Review results for a period and see each Friend’s assigned people."
+                              : "Keep every person connected to the care they need."}
                   </p>
                 </div>
-                {caps?.coordinator &&
-                  ["overview", "visitors", "membership"].includes(view) &&
-                  button("direct", "Direct registration", false)}
+                {(caps?.coordinator || caps?.friend) &&
+                  ["overview", "register", "visitors", "membership"].includes(
+                    view,
+                  ) && (
+                    <div className="vj-actions">
+                      {button("direct", "Register a person", false)}
+                      <button
+                        className="vj-secondary"
+                        onClick={() => setImporting(true)}
+                      >
+                        Import CSV
+                      </button>
+                    </div>
+                  )}
                 {view === "cfc" &&
                   caps?.foundation &&
                   button("cohort", "Create cohort", false)}
@@ -2022,19 +2044,19 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                         [
                           "overdue",
                           "Overdue",
-                          "Past their follow-up time",
+                          "Past their Follow Through time",
                           "queue",
                         ],
                         [
                           "visitors",
-                          "Visitors in follow-up",
+                          "Visitors receiving care",
                           "Open visitor records",
                           "visitors",
                         ],
                         [
                           "unassigned",
                           "Awaiting a friend",
-                          "Need a Follow-through Friend",
+                          "Need a Follow Through Friend",
                           "visitors",
                         ],
                         [
@@ -2106,7 +2128,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                   {view === "visitors" && (
                     <div className="vj-queue-filter">
                       <label>
-                        Visitor follow-up status
+                        Visitor Follow Through status
                         <select
                           value={
                             [
@@ -2123,7 +2145,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                             setPage(0);
                           }}
                         >
-                          <option value="all">Visitors in follow-up</option>
+                          <option value="all">
+                            Visitors in Follow Through
+                          </option>
                           <option value="unassigned">Awaiting a friend</option>
                           <option value="paused">Paused</option>
                           <option value="inactive">Inactive</option>
@@ -2218,106 +2242,118 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                         Search
                       </button>
                     </form>
-                    <div className="vj-table-head">
-                      <span>PERSON</span>
-                      <span>JOURNEY STAGE</span>
-                      <span>FOLLOW-THROUGH FRIEND</span>
-                      <span>NEXT STEP</span>
-                    </div>
-                    {rows.length ? (
-                      rows.map((p) => (
-                        <div key={p.member_id} className="vj-queue-row">
-                          <button
-                            className="vj-person-row"
-                            onClick={() => openPerson(p.member_id)}
-                          >
-                            <span className="vj-person">
-                              <span className="vj-avatar">
-                                {p.name
-                                  .split(" ")
-                                  .map((x) => x[0])
-                                  .slice(0, 2)
-                                  .join("")}
-                              </span>
-                              <span>
-                                <strong>{p.name}</strong>
-                                <small>
-                                  {p.reported_first_visit
-                                    ? "First visit reported " +
-                                      date(p.reported_first_visit)
-                                    : "Visit date not verified"}
-                                </small>
-                              </span>
-                            </span>
-                            <span>
-                              <Badge
-                                tone={
-                                  p.status === "member"
-                                    ? "green"
-                                    : (p.membership_eligible ??
-                                        p.service_count >= 1)
-                                      ? "purple"
-                                      : "blue"
-                                }
+                    {["register", "cfc"].includes(view) ? (
+                      <JourneyRegister
+                        people={rows}
+                        classes={view === "cfc"}
+                        onPerson={openPerson}
+                      />
+                    ) : (
+                      <>
+                        <div className="vj-table-head">
+                          <span>PERSON</span>
+                          <span>JOURNEY STAGE</span>
+                          <span>Follow Through FRIEND</span>
+                          <span>NEXT STEP</span>
+                        </div>
+                        {rows.length ? (
+                          rows.map((p) => (
+                            <div key={p.member_id} className="vj-queue-row">
+                              <button
+                                className="vj-person-row"
+                                onClick={() => openPerson(p.member_id)}
                               >
-                                {p.status === "member"
-                                  ? "Official member"
-                                  : (p.membership_eligible ??
-                                      p.service_count >= 1)
-                                    ? "Membership eligible"
-                                    : "Previous visit not recorded"}
-                              </Badge>
-                              {view === "membership" && (
-                                <small>{pretty(p.intention)}</small>
-                              )}
-                              {p.legacy_member && !p.official_joined_on && (
-                                <small>Joining date needs confirmation</small>
-                              )}
-                            </span>
-                            <span className="vj-worker">
-                              {view === "ministry"
-                                ? `${p.ministry_count || 0} active team(s)`
-                                : view === "home_cells"
-                                  ? p.home_cell_name || "Not recorded"
-                                  : p.worker_name || "Not assigned"}
-                              {p.assignment_conflict && (
-                                <small>Resolve assignment conflict</small>
-                              )}
-                            </span>
-                            <span className="vj-row-next">
-                              <span>
-                                {p.next_due
-                                  ? date(p.next_due, true)
-                                  : p.status === "member"
-                                    ? "View continuing care"
-                                    : !p.assigned_to
-                                      ? "Assign a friend"
-                                      : "View journey"}
-                                {p.next_due &&
-                                  Date.parse(p.next_due) < Date.now() && (
-                                    <small className="vj-overdue">
-                                      {p.contact_count > 0 ||
-                                      Date.parse(p.registered_at) <
-                                        Date.now() - 7 * 86400000
-                                        ? "Overdue"
-                                        : "Needs attention"}
+                                <span className="vj-person">
+                                  <span className="vj-avatar">
+                                    {p.name
+                                      .split(" ")
+                                      .map((x) => x[0])
+                                      .slice(0, 2)
+                                      .join("")}
+                                  </span>
+                                  <span>
+                                    <strong>{p.name}</strong>
+                                    <small>
+                                      {p.reported_first_visit
+                                        ? "First visit reported " +
+                                          date(p.reported_first_visit)
+                                        : "Visit date not verified"}
+                                    </small>
+                                  </span>
+                                </span>
+                                <span>
+                                  <Badge
+                                    tone={
+                                      p.status === "member"
+                                        ? "green"
+                                        : (p.membership_eligible ??
+                                            p.service_count >= 1)
+                                          ? "purple"
+                                          : "blue"
+                                    }
+                                  >
+                                    {p.status === "member"
+                                      ? "Official member"
+                                      : (p.membership_eligible ??
+                                          p.service_count >= 1)
+                                        ? "Membership eligible"
+                                        : "Previous visit not recorded"}
+                                  </Badge>
+                                  {view === "membership" && (
+                                    <small>{pretty(p.intention)}</small>
+                                  )}
+                                  {p.legacy_member && !p.official_joined_on && (
+                                    <small>
+                                      Joining date needs confirmation
                                     </small>
                                   )}
-                              </span>
-                              <Icon name="arrow" />
-                            </span>
-                          </button>
-                          {rowActions(p)}
-                        </div>
-                      ))
-                    ) : (
-                      <Empty>
-                        {search
-                          ? "No people match this search."
-                          : view === "membership"
-                            ? "No people in this preparation view yet. One previous VBC visit is enough to be eligible."
-                            : "No people in this queue yet. Reviewed guest submissions and existing central records appear here when your role permits."}
-                      </Empty>
+                                </span>
+                                <span className="vj-worker">
+                                  {view === "ministry"
+                                    ? `${p.ministry_count || 0} active team(s)`
+                                    : view === "home_cells"
+                                      ? p.home_cell_name || "Not recorded"
+                                      : p.worker_name || "Not assigned"}
+                                  {p.assignment_conflict && (
+                                    <small>Resolve assignment conflict</small>
+                                  )}
+                                </span>
+                                <span className="vj-row-next">
+                                  <span>
+                                    {p.next_due
+                                      ? date(p.next_due, true)
+                                      : p.status === "member"
+                                        ? "View continuing care"
+                                        : !p.assigned_to
+                                          ? "Assign a friend"
+                                          : "View journey"}
+                                    {p.next_due &&
+                                      Date.parse(p.next_due) < Date.now() && (
+                                        <small className="vj-overdue">
+                                          {p.contact_count > 0 ||
+                                          Date.parse(p.registered_at) <
+                                            Date.now() - 7 * 86400000
+                                            ? "Overdue"
+                                            : "Needs attention"}
+                                        </small>
+                                      )}
+                                  </span>
+                                  <Icon name="arrow" />
+                                </span>
+                              </button>
+                              {rowActions(p)}
+                            </div>
+                          ))
+                        ) : (
+                          <Empty>
+                            {search
+                              ? "No people match this search."
+                              : view === "membership"
+                                ? "No people in this preparation view yet. One previous VBC visit is enough to be eligible."
+                                : "No people in this queue yet. Reviewed guest submissions and existing central records appear here when your role permits."}
+                          </Empty>
+                        )}
+                      </>
                     )}
                     <div className="vj-pagination">
                       <span>
@@ -2445,6 +2481,12 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </div>
           </div>
         </Dialog>
+      )}
+      {importing && (
+        <JourneyImport
+          onClose={() => setImporting(false)}
+          onSaved={() => void load()}
+        />
       )}
       {modal && snapshot && (
         <Dialog

@@ -30,6 +30,7 @@ jobs:
       - run: npm run test:journey
       - run: npm run test:journey:v38
       - run: npm run test:journey:queues
+      - run: npm run test:v41
       - run: npm run test:whatsapp
       - run: npm run test:home-cell
       - run: npm run test:home-cell:accounts

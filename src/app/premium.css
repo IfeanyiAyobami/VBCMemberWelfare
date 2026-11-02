@@ -178,3 +178,5 @@
 [data-theme="dark"] .vbc-followup-shortcut{color:#fff;border-color:#4353a4}
 .fu-return-link{margin-top:18px;border:1px solid #8c8bd480!important;background:#ffffff12!important}
 @media(max-width:680px){.vbc-followup-shortcut{padding:9px;font-size:11px}}
+/* Saved programme flyers are shown in full, with details beneath. */
+.programme-flyer-link{font-size:.75rem;color:#e5e3ff;text-underline-offset:3px;align-self:flex-start}.programme-flyer-link:hover{color:#fff}#event-form [hidden]{display:none!important}#event-flyer-preview{width:100%;height:220px;object-fit:contain;margin-top:16px}#event-errors:not(:empty){margin-bottom:16px}.vj-import-table td{max-width:280px}

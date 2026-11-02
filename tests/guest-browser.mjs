@@ -73,7 +73,7 @@ export async function runGuestBrowser(origin) {
     );
     await d
       .getByRole("checkbox", {
-        name: "Visit and follow-up contact",
+        name: "Visit and Follow Through contact",
         exact: false,
       })
       .check();

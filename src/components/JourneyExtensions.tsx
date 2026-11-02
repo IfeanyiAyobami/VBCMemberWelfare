@@ -398,7 +398,7 @@ export function IntegrationProfile({
           <span className="vj-eyebrow">PRIVATE CARE JOURNAL</span>
           <h2>Welfare and support needs</h2>
           <p>
-            Visible to the assigned friend and Follow-up Coordinator. These
+            Visible to the assigned friend and Follow Through Coordinator. These
             notes are excluded from the standard spreadsheet export.
           </p>
           {welfare.map((x) => (
@@ -420,7 +420,7 @@ const metricLabels: Record<string, string> = {
   visitors_contacted: "New visitor cohort contacted",
   first_contact_within_48h: "First successful contact within 48h",
   awaiting_assignment_now: "Awaiting assignment · now",
-  overdue_followups_now: "Overdue follow-ups · now",
+  overdue_followups_now: "Overdue Follow Through · now",
   interested_now: "Interested in joining · now",
   official_joiners: "Official joiners in period",
   direct_joiners: "Direct joiners in period",
@@ -463,7 +463,8 @@ export function JourneyReports({
     [loading, setLoading] = useState(false),
     [error, setError] = useState(""),
     [downloading, setDownloading] = useState(false),
-    [loadedWorker, setLoadedWorker] = useState("");
+    [loadedWorker, setLoadedWorker] = useState(""),
+    [allMetrics, setAllMetrics] = useState(false);
   function dates() {
     if (kind === "custom") return { from, to };
     if (kind === "month") {
@@ -689,19 +690,102 @@ export function JourneyReports({
             </div>
           </div>
           <div className="vj-report-metrics">
-            {Object.entries(data.scoreboard).map(([key, value]) => (
-              <article className="vj-panel" key={key}>
-                <span>{metricLabels[key] || key}</span>
-                <strong>
-                  {value == null
-                    ? "—"
-                    : key === "conversion_rate"
-                      ? value + "%"
-                      : value}
-                </strong>
-              </article>
-            ))}
+            {Object.entries(data.scoreboard)
+              .filter(
+                ([key]) =>
+                  allMetrics ||
+                  [
+                    "new_visitors",
+                    "official_joiners",
+                    "conversion_rate",
+                    "overdue_followups_now",
+                    "continuing_care_now",
+                    "cfc_enrolled_now",
+                  ].includes(key),
+              )
+              .map(([key, value]) => (
+                <article className="vj-panel" key={key}>
+                  <span>{metricLabels[key] || key}</span>
+                  <strong>
+                    {value == null
+                      ? "—"
+                      : key === "conversion_rate"
+                        ? value + "%"
+                        : value}
+                  </strong>
+                </article>
+              ))}
           </div>
+          <button
+            className="vj-secondary"
+            onClick={() => setAllMetrics((v) => !v)}
+          >
+            {allMetrics ? "Show key figures only" : "Show all report figures"}
+          </button>
+          {data.friend_summary && (
+            <section className="vj-panel">
+              <div className="vj-panel-head">
+                <div>
+                  <h2>Follow Through Friends analysis</h2>
+                  <p>
+                    All people in this report, grouped by their current assigned
+                    Friend. These totals include every page.
+                  </p>
+                </div>
+              </div>
+              <div className="vj-register-wrap">
+                <table className="vj-register-table">
+                  <thead>
+                    <tr>
+                      {[
+                        "Assigned Friend",
+                        "People in report",
+                        "Joined by period end",
+                        "Contact attempts",
+                        "Conversations",
+                        "Overdue now",
+                        "CFC enrolled now",
+                      ].map((h) => (
+                        <th key={h}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.friend_summary.map((r, i) => (
+                      <tr key={String(r.assigned_to) || i}>
+                        {[
+                          "friend",
+                          "people",
+                          "joined_by_period_end",
+                          "contact_attempts",
+                          "conversations",
+                          "overdue_now",
+                          "cfc_enrolled_now",
+                        ].map((k, j) => (
+                          <td
+                            key={k}
+                            data-label={
+                              [
+                                "Assigned Friend",
+                                "People in report",
+                                "Joined by period end",
+                                "Contact attempts",
+                                "Conversations",
+                                "Overdue now",
+                                "CFC enrolled now",
+                              ][j]
+                            }
+                          >
+                            {String(r[k] ?? "Not recorded")}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
           <details className="vj-panel vj-report-definitions">
             <summary>How these figures are calculated</summary>
             {Object.entries(data.definitions).map(([key, value]) => (

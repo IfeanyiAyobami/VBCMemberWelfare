@@ -44,7 +44,7 @@ export async function memberAccess(request: NextRequest, write = false) {
       return {
         ok: false as const,
         response: authJSON(
-          { message: "Follow-up workers can only access assigned follow-ups." },
+          { message: "Follow Through workers can only access assigned Follow Through." },
           403,
         ),
       };

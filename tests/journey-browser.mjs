@@ -44,6 +44,8 @@ const records = [
     intention: "interested",
     official_joined_on: "2026-09-27",
     care_until: "2027-03-27",
+    cfc_cohort: "Fictional Foundation cohort",
+    cfc_weeks: [{week:1,status:"present",date:"2026-10-04"},{week:2,status:"absent",date:"2026-10-11"}],
     care_status: "ongoing",
     legacy_member: false,
     assignment_conflict: false,
@@ -87,6 +89,7 @@ export async function journeyMock(req, res, url, auth, json) {
   for await (const chunk of req) raw += chunk;
   const d = JSON.parse(raw);
   const admin = auth.user.role === "administrator";
+  if (url.pathname.endsWith("care_journey_can_register")) {json(res,200,true);return true;}
   if (url.pathname.endsWith("care_journey_report")) {
     const rows = records
       .filter((p) => !d.p_worker || p.assigned_to === d.p_worker)
@@ -116,6 +119,7 @@ export async function journeyMock(req, res, url, auth, json) {
         conversion: "Direct joiners are excluded from visitor conversion.",
         current_metrics: "Current assignment filter.",
       },
+      friend_summary: [{friend:"Fixture administrator",people:rows.length,joined_by_period_end:1,contact_attempts:1,conversations:1,overdue_now:1,cfc_enrolled_now:1}],
       generated_at: new Date().toISOString(),
     });
     return true;
@@ -256,7 +260,7 @@ export async function journeyMock(req, res, url, auth, json) {
             service_date: "2026-10-04",
             service_type: "Sunday service",
             source: "phone",
-            evidence: "Fictional visitor reported attendance during follow-up",
+            evidence: "Fictional visitor reported attendance during Follow Through",
             verification: "self_report",
             qualifies: true,
           },
@@ -580,7 +584,7 @@ export async function runJourneyBrowser(page, origin) {
   await page.getByText("Fictional Central Cell", { exact: true }).waitFor();
   await page
     .locator(".vj-sidebar")
-    .getByRole("button", { name: "Reports & scoreboard", exact: true })
+    .getByRole("button", { name: "Reports & Friends analysis", exact: true })
     .click();
   await page
     .getByRole("heading", { name: "People included in this period" })
@@ -615,7 +619,7 @@ export async function runJourneyBrowser(page, origin) {
     .getByRole("button", { name: "Visitors", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Direct registration", exact: true })
+    .getByRole("button", { name: "Register a person", exact: true })
     .click();
   await page.getByLabel("Other names", { exact: true }).fill("Walk-in");
   await page.getByLabel("Surname", { exact: true }).fill("Fictional Member");

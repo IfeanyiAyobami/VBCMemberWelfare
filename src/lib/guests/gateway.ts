@@ -30,7 +30,7 @@ export const GATEWAY_LIMITS = {
 } as const;
 export type GatewayPayload = Record<keyof typeof GATEWAY_LIMITS, string>;
 export const GATEWAY_EVIDENCE =
-  'WordPress First-Timer Gateway v1.1.3 submitted contact_consent="Yes" for visitor follow-up. No email, SMS, celebration, programme or newsletter opt-in was supplied.';
+  'WordPress First-Timer Gateway v1.1.3 submitted contact_consent="Yes" for visitor Follow Through. No email, SMS, celebration, programme or newsletter opt-in was supplied.';
 
 export function validateGateway(input: unknown, idempotencyKey: string | null) {
   const fail = (field: string) => ({ ok: false as const, field });

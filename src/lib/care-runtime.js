@@ -64,49 +64,332 @@ export function mountCareUI(root, options = {}) {
       maximumFractionDigits: 0,
     }).format(n);
   // Use the actual current calendar date in Lagos, not the original October demo snapshot.
-  const lagosNow = () => new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
+  const lagosNow = () =>
+    new Date(new Date().toLocaleString("en-US", { timeZone: "Africa/Lagos" }));
   const lagosToday = () => {
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: "Africa/Lagos", year: "numeric", month: "2-digit", day: "2-digit"
+      timeZone: "Africa/Lagos",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
     }).formatToParts(new Date());
-    const part = (type) => parts.find((item) => item.type === type)?.value || "";
-    return { iso: `${part("year")}-${part("month")}-${part("day")}`, md: `${part("month")}-${part("day")}` };
+    const part = (type) =>
+      parts.find((item) => item.type === type)?.value || "";
+    return {
+      iso: `${part("year")}-${part("month")}-${part("day")}`,
+      md: `${part("month")}-${part("day")}`,
+    };
   };
-  const lagosDisplay = () => new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Africa/Lagos", weekday: "long", day: "numeric", month: "long", year: "numeric"
-  }).format(new Date());
+  const lagosDisplay = () =>
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos",
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date());
   const lagosStamp = () => ({
-    day: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", day: "2-digit" }).format(new Date()),
-    month: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", month: "long" }).format(new Date()).toUpperCase(),
-    weekday: new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", weekday: "long" }).format(new Date()).toUpperCase()
+    day: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos",
+      day: "2-digit",
+    }).format(new Date()),
+    month: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos",
+      month: "long",
+    })
+      .format(new Date())
+      .toUpperCase(),
+    weekday: new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Africa/Lagos",
+      weekday: "long",
+    })
+      .format(new Date())
+      .toUpperCase(),
   });
   const state = createDemoState(defaultEmailDesign);
+
+  const liveProgrammes = { status: "loading", canEdit: false, message: "" };
+  let eventSaving = false,
+    programmeLoad = 0;
+  if (options.memberDirectorySaved) state.events = [];
+  const weekDays = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  function programmeDate(event) {
+    if (event.recurrence !== "weekly") return event.fixedDate || event.date;
+    const now = lagosNow(),
+      today = lagosToday().iso;
+    let diff = (Number(event.weekday) - now.getDay() + 7) % 7;
+    const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    if (diff === 0 && event.time < time) diff = 7;
+    const d = new Date(today + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + diff);
+    return d.toISOString().slice(0, 10);
+  }
+  const savedProgramme = (p) => ({
+    id: p.id,
+    title: p.title,
+    description: p.description,
+    date: p.event_date || "",
+    fixedDate: p.event_date || "",
+    recurrence: p.recurrence,
+    weekday: p.weekday,
+    time: p.start_time.slice(0, 5),
+    venue: p.venue,
+    link: p.information_link,
+    image: p.image || "",
+    flyerPath: p.flyer_path || "",
+    version: p.version,
+  });
+  async function refreshProgrammes() {
+    if (!options.memberDirectorySaved) return;
+    const seq = ++programmeLoad;
+    try {
+      const r = await fetch("/api/programmes", {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: AbortSignal.timeout(20000),
+        }),
+        x = await r.json();
+      if (!r.ok || !Array.isArray(x.items))
+        throw Error(x.message || "Unable to load saved programmes.");
+      if (seq !== programmeLoad || lifecycle.signal.aborted) return;
+      state.events = x.items.map(savedProgramme);
+      liveProgrammes.status = "ready";
+      liveProgrammes.canEdit = x.canEdit === true;
+      liveProgrammes.message = "";
+    } catch (e) {
+      if (seq !== programmeLoad || lifecycle.signal.aborted) return;
+      liveProgrammes.status = "error";
+      liveProgrammes.message = e.message || "Unable to load saved programmes.";
+    }
+    if (
+      !lifecycle.signal.aborted &&
+      !modal.open &&
+      ["overview", "programmes"].includes(currentRoute().split("/")[0])
+    )
+      render();
+  }
+  function programmes() {
+    if (!options.memberDirectorySaved) return prototypeProgrammes();
+    const head = title(
+      "Gather the family",
+      "Saved programmes, flyers and recurring services.",
+      liveProgrammes.status === "ready" && liveProgrammes.canEdit
+        ? btn(`${icon("plus")} Create programme`, "add-event", "primary")
+        : "",
+    );
+    if (liveProgrammes.status !== "ready")
+      return (
+        head +
+        `<section class="card card-pad"><p role="${liveProgrammes.status === "error" ? "alert" : "status"}">${esc(liveProgrammes.status === "loading" ? "Loading saved programmes…" : liveProgrammes.message)}</p>${btn("Refresh programmes", "refresh-programmes")}</section>`
+      );
+    if (!state.events.length)
+      return (
+        head +
+        '<section class="card card-pad"><h2>No programmes yet</h2><p>Create a programme to save it here. Weekly services can use a recurring schedule without a fixed date.</p></section>'
+      );
+    const items = state.events
+      .map((e) => ({ ...e, date: programmeDate(e) }))
+      .sort(
+        (a, b) =>
+          (a.date < lagosToday().iso) - (b.date < lagosToday().iso) ||
+          a.date.localeCompare(b.date) ||
+          a.time.localeCompare(b.time),
+      );
+    return (
+      head +
+      `<div class="grid three programme-grid">${items
+        .map((e) => {
+          const past =
+            e.recurrence !== "weekly" &&
+            (e.date < lagosToday().iso ||
+              (e.date === lagosToday().iso &&
+                e.time < lagosNow().toTimeString().slice(0, 5)));
+          const schedule =
+            e.recurrence === "weekly"
+              ? "Every " + weekDays[e.weekday]
+              : dateLabel(e.date);
+          const date = new Date(e.date + "T12:00:00Z");
+          const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(date).toUpperCase();
+          const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(date);
+          const image = e.image ? encodeURI(e.image).replaceAll("'", "%27").replaceAll("(", "%28").replaceAll(")", "%29") : "";
+          return `<article class="card event-card event-card-visual" style="--programme-image:url('${esc(image)}')"><div class="programme-cover"><div class="programme-cover-top"><span class="programme-status ${past ? "past" : ""}"><span class="programme-dot"></span>${e.recurrence === "weekly" ? "Recurring weekly" : past ? "Past programme" : "Upcoming"}</span><span class="programme-date"><strong>${esc(e.date.slice(8))}</strong><small>${month} ${esc(e.date.slice(0, 4))}<br>${weekday}</small></span></div><h2 class="programme-cover-title">${esc(e.title)}</h2></div><div class="card-pad programme-details"><p>${esc(e.description)}</p><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><div class="event-meta">${icon("clock")}${esc(e.time)} · ${esc(schedule)}</div>${e.recurrence === "weekly" ? `<small class="hint">Next: ${dateLabel(e.date)}</small>` : ""}<div class="actions mt">${btn("Create invite", "event-campaign", "small primary", 'data-id="' + e.id + '"')}${liveProgrammes.canEdit ? btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"') : ""}</div>${e.image ? `<a class="programme-flyer-link" href="${esc(e.image)}" target="_blank" rel="noopener noreferrer">View full flyer</a>` : ""}</div></article>`;
+        })
+        .join(
+          "",
+        )}</div><p class="hint mt">Programmes are saved to the church database. Creating an invitation opens the existing message composer and does not send automatically.</p>`
+    );
+  }
+  function liveEventDialog(id) {
+    if (!liveProgrammes.canEdit || eventSaving) return;
+    const e = state.events.find((x) => x.id === id) || {
+      title: "",
+      fixedDate: "",
+      time: "09:00",
+      venue: "",
+      description: "",
+      link: "",
+      recurrence: "once",
+      weekday: 0,
+      flyerPath: "",
+    };
+    showModal(
+      id ? "Edit programme" : "New programme",
+      `<form id="event-form" data-id="${id || ""}" data-version="${e.version || ""}" data-flyer="${esc(e.flyerPath || "")}" novalidate><div id="event-errors" role="alert"></div>${field("event-title", "Programme name <span>*</span>", e.title)}<div class="field"><label for="event-recurrence">Schedule</label><select id="event-recurrence"><option value="once" ${e.recurrence === "once" ? "selected" : ""}>One-off programme</option><option value="weekly" ${e.recurrence === "weekly" ? "selected" : ""}>Recurring weekly</option></select></div><div class="form-grid"><div id="event-date-wrap" ${e.recurrence === "weekly" ? "hidden" : ""}>${field("event-date", "Actual programme date", e.fixedDate, "date")}</div><div class="field" id="event-weekday-wrap" ${e.recurrence !== "weekly" ? "hidden" : ""}><label for="event-weekday">Every week on</label><select id="event-weekday">${weekDays.map((d, i) => `<option value="${i}" ${Number(e.weekday) === i ? "selected" : ""}>${d}</option>`).join("")}</select></div>${field("event-time", "Time · Africa/Lagos <span>*</span>", e.time, "time")}</div>${field("event-venue", "Venue <span>*</span>", e.venue)}<div class="field"><label for="event-description">Short description</label><textarea id="event-description" maxlength="2000">${esc(e.description)}</textarea></div>${field("event-link", "Information link", e.link, "url")}<div class="field"><label for="event-flyer">Programme flyer · JPG, PNG or WebP, up to 4 MB</label><input id="event-flyer" type="file" accept="image/jpeg,image/png,image/webp"><small>Flyers are publicly viewable. Upload programme artwork only.</small>${e.image ? `<a href="${esc(e.image)}" target="_blank" rel="noopener noreferrer">View current flyer</a><label class="check-label"><input type="checkbox" id="event-remove-flyer">Remove current flyer</label>` : ""}<img id="event-flyer-preview" alt="Selected flyer preview" hidden></div></form>`,
+      btn("Cancel", "close") +
+        '<button class="btn primary" type="submit" form="event-form">Save programme</button>',
+    );
+  }
+  async function saveLiveProgramme(f) {
+    if (eventSaving) return;
+    eventSaving = true;
+    const buttons = $$("button", modal);
+    buttons.forEach((b) => (b.disabled = true));
+    try {
+      const v = (k) => $("#event-" + k).value.trim(),
+        mode = v("recurrence");
+      const data = {
+        id: f.dataset.id || null,
+        version: f.dataset.version ? Number(f.dataset.version) : undefined,
+        title: v("title"),
+        date: mode === "once" ? v("date") : "",
+        recurrence: mode,
+        weekday: mode === "weekly" ? Number(v("weekday")) : null,
+        time: v("time"),
+        venue: v("venue"),
+        description: v("description"),
+        link: v("link"),
+        flyerPath: $("#event-remove-flyer")?.checked
+          ? ""
+          : f.dataset.flyer || "",
+      };
+      if (
+        !data.title ||
+        !data.time ||
+        !data.venue ||
+        (mode === "once" && !data.date)
+      )
+        throw Error("Enter programme name, schedule, time and venue.");
+      if (data.link && !/^https?:\/\//i.test(data.link))
+        throw Error("Use a complete http or https information link.");
+      const file = $("#event-flyer").files[0];
+      if (file && !f.dataset.uploaded) {
+        if (file.size > 4194304) throw Error("Choose a flyer of 4 MB or less.");
+        const form = new FormData();
+        form.append("file", file);
+        const r = await fetch("/api/programmes/flyer", {
+            method: "POST",
+            body: form,
+            signal: AbortSignal.timeout(60000),
+          }),
+          x = await r.json();
+        if (!r.ok) throw Error(x.message);
+        f.dataset.uploaded = x.path;
+      }
+      if (file) data.flyerPath = f.dataset.uploaded;
+      const payload = JSON.stringify(data);
+      if (f.dataset.payload !== payload) {
+        f.dataset.request = crypto.randomUUID();
+        f.dataset.payload = payload;
+      }
+      const r = await fetch("/api/programmes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: f.dataset.request, data }),
+          signal: AbortSignal.timeout(30000),
+        }),
+        x = await r.json();
+      if (!r.ok) throw Error(x.message);
+      const e = savedProgramme(x.item);
+      state.events = [e, ...state.events.filter((p) => p.id !== e.id)];
+      liveProgrammes.status = "ready";
+      modal.close();
+      render();
+      toast("Programme saved. It will remain here after refresh.");
+    } catch (e) {
+      reportErrors("event-errors", [
+        e.message || "Unable to save. Your entered details are still here.",
+      ]);
+    } finally {
+      eventSaving = false;
+      buttons.forEach((b) => (b.disabled = false));
+    }
+  }
+
   // Saved celebrations are always fetched from the authenticated directory.
   // Never fall back to fictional records if loading fails.
   const liveCelebrations = { status: "loading", members: [], message: "" };
   const liveMemberRow = (m, extra = "") =>
     `<a class="row row-link" href="/profile/${encodeURIComponent(m.id)}"><span class="avatar">${esc((m.first || "")[0])}${esc((m.last || "")[0])}</span><span class="row-main"><strong>${esc(m.first + " " + m.last)}</strong><small>${esc(m.status)}</small></span><span class="row-right">${extra}</span></a>`;
-  const celebrationNotice = () => `<div class="card-pad"><p class="hint" role="status">${esc(liveCelebrations.status === "loading" ? "Loading saved member celebrations…" : liveCelebrations.message || "Unable to load saved celebrations.")}</p></div>`;
+  const celebrationNotice = () =>
+    `<div class="card-pad"><p class="hint" role="status">${esc(liveCelebrations.status === "loading" ? "Loading saved member celebrations…" : liveCelebrations.message || "Unable to load saved celebrations.")}</p></div>`;
   const liveMembers = () => liveCelebrations.members;
   async function refreshCelebrations() {
     try {
-      const response = await fetch("/api/celebrations", { credentials: "same-origin", cache: "no-store", signal: lifecycle.signal });
-      if (!response.ok) throw new Error(response.status === 403 ? "Your role cannot view the member celebration directory." : "Saved celebrations are temporarily unavailable. Please refresh.");
+      const response = await fetch("/api/celebrations", {
+        credentials: "same-origin",
+        cache: "no-store",
+        signal: lifecycle.signal,
+      });
+      if (!response.ok)
+        throw new Error(
+          response.status === 403
+            ? "Your role cannot view the member celebration directory."
+            : "Saved celebrations are temporarily unavailable. Please refresh.",
+        );
       const result = await response.json();
-      if (!Array.isArray(result.members)) throw new Error("Saved celebrations could not be read.");
-      const datePart = (month, day) => Number.isInteger(month) && Number.isInteger(day) && month >= 1 && month <= 12 && day >= 1 && day <= 31 ? `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}` : "";
+      if (!Array.isArray(result.members))
+        throw new Error("Saved celebrations could not be read.");
+      const datePart = (month, day) =>
+        Number.isInteger(month) &&
+        Number.isInteger(day) &&
+        month >= 1 &&
+        month <= 12 &&
+        day >= 1 &&
+        day <= 31
+          ? `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`
+          : "";
       liveCelebrations.members = result.members.map((m) => {
-        const preferences = Array.isArray(m.care_preferences) ? m.care_preferences[0] : m.care_preferences;
-        return { id: m.id, first: m.other_names || "", last: m.surname || "", status: ({visitor:"Visitor",new_member:"New member",member:"Member"})[m.status] || "Member", birthday: datePart(m.birthday_month, m.birthday_day), anniversary: datePart(m.anniversary_month, m.anniversary_day), celebrationOpt: preferences?.celebrations_opt_in === true, emailOpt: preferences?.email_opt_in === true, smsOpt: preferences?.sms_opt_in === true };
+        const preferences = Array.isArray(m.care_preferences)
+          ? m.care_preferences[0]
+          : m.care_preferences;
+        return {
+          id: m.id,
+          first: m.other_names || "",
+          last: m.surname || "",
+          status:
+            { visitor: "Visitor", new_member: "New member", member: "Member" }[
+              m.status
+            ] || "Member",
+          birthday: datePart(m.birthday_month, m.birthday_day),
+          anniversary: datePart(m.anniversary_month, m.anniversary_day),
+          celebrationOpt: preferences?.celebrations_opt_in === true,
+          emailOpt: preferences?.email_opt_in === true,
+          smsOpt: preferences?.sms_opt_in === true,
+        };
       });
       liveCelebrations.status = "ready";
       liveCelebrations.message = "";
     } catch (error) {
       if (lifecycle.signal.aborted) return;
       liveCelebrations.status = "error";
-      liveCelebrations.message = error instanceof Error ? error.message : "Unable to load saved celebrations.";
+      liveCelebrations.message =
+        error instanceof Error
+          ? error.message
+          : "Unable to load saved celebrations.";
     }
-    if (!lifecycle.signal.aborted && ["overview", "celebrations"].includes(currentRoute().split("/")[0])) render();
+    if (
+      !lifecycle.signal.aborted &&
+      ["overview", "celebrations"].includes(currentRoute().split("/")[0])
+    )
+      render();
   }
   const todayParts = lagosToday().iso.split("-").map(Number);
   state.calYear = todayParts[0];
@@ -189,7 +472,10 @@ export function mountCareUI(root, options = {}) {
       return;
     if (modal.open) modal.close();
     render();
-    if (["overview", "celebrations"].includes(currentRoute().split("/")[0])) void refreshCelebrations();
+    if (["overview", "celebrations"].includes(currentRoute().split("/")[0]))
+      void refreshCelebrations();
+    if (["overview", "programmes"].includes(currentRoute().split("/")[0]))
+      void refreshProgrammes();
     main.focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: "instant" });
   }
@@ -212,7 +498,7 @@ export function mountCareUI(root, options = {}) {
     $("#navigation").innerHTML = nav
       .map(
         ([key, name]) =>
-          `<a href="/${key}" ${key === "followups" ? "" : "data-care-route=\"\""} class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}${key === "delivery" && state.logs.some((l) => l.status === "Failed") ? '<span class="nav-count">1</span>' : ""}</a>`,
+          `<a href="/${key}" ${key === "followups" ? "" : 'data-care-route=""'} class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}${key === "delivery" && state.logs.some((l) => l.status === "Failed") ? '<span class="nav-count">1</span>' : ""}</a>`,
       )
       .join("");
     $("#breadcrumb").textContent =
@@ -261,71 +547,114 @@ export function mountCareUI(root, options = {}) {
     const today = lagosToday();
     const birthdays = members.filter((m) => m.birthday === today.md);
     const anniversaries = members.filter((m) => m.anniversary === today.md);
-    const celebrationsToday = [...birthdays.map((m) => ({ m, label: "Birthday" })), ...anniversaries.map((m) => ({ m, label: "Anniversary" }))];
+    const celebrationsToday = [
+      ...birthdays.map((m) => ({ m, label: "Birthday" })),
+      ...anniversaries.map((m) => ({ m, label: "Anniversary" })),
+    ];
     const loaded = liveCelebrations.status === "ready";
     const monthDate = new Date(`${today.iso}T12:00:00`);
     const year = monthDate.getFullYear();
     const month = monthDate.getMonth();
     const firstWeekday = new Date(year, month, 1).getDay();
     const days = new Date(year, month + 1, 0).getDate();
-    const monthLabel = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric" }).format(monthDate);
-    const monthGrid = Array.from({length: firstWeekday}, () => '<span class="vbc-calendar-empty"></span>').join("") +
-      Array.from({length: days}, (_, i) => {
+    const monthLabel = new Intl.DateTimeFormat("en-GB", {
+      month: "long",
+      year: "numeric",
+    }).format(monthDate);
+    const monthGrid =
+      Array.from(
+        { length: firstWeekday },
+        () => '<span class="vbc-calendar-empty"></span>',
+      ).join("") +
+      Array.from({ length: days }, (_, i) => {
         const day = i + 1;
-        const md = `${String(month + 1).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-        const hasEvent = loaded && members.some((m) => m.birthday === md || m.anniversary === md);
-        return `<span class="vbc-calendar-day ${day === monthDate.getDate() ? "today" : ""} ${hasEvent ? "has-event" : ""}" aria-label="${day} ${monthLabel}${hasEvent ? ", celebration" : ""}">${day}${hasEvent ? '<i></i>' : ''}</span>`;
+        const md = `${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+        const hasEvent =
+          loaded &&
+          members.some((m) => m.birthday === md || m.anniversary === md);
+        return `<span class="vbc-calendar-day ${day === monthDate.getDate() ? "today" : ""} ${hasEvent ? "has-event" : ""}" aria-label="${day} ${monthLabel}${hasEvent ? ", celebration" : ""}">${day}${hasEvent ? "<i></i>" : ""}</span>`;
       }).join("");
-    const metric = (name, number, detail, symbol, tone="") => `<div class="vbc-metric ${tone}"><div class="vbc-metric-icon">${icon(symbol)}</div><div class="vbc-metric-content"><span>${name}</span><strong>${number}</strong><small>${detail}</small></div></div>`;
-    const row = ({m,label}) => `<a class="vbc-priority-row" href="/profile/${encodeURIComponent(m.id)}" data-care-route=""><span class="avatar small">${esc((m.first||"")[0])}${esc((m.last||"")[0])}</span><span class="vbc-priority-person"><strong>${esc(m.first+" "+m.last)}</strong><small>${label} today</small></span><span class="badge ${label === "Birthday" ? "red" : "blue"}">${label}</span><span aria-hidden="true">›</span></a>`;
+    const metric = (name, number, detail, symbol, tone = "") =>
+      `<div class="vbc-metric ${tone}"><div class="vbc-metric-icon">${icon(symbol)}</div><div class="vbc-metric-content"><span>${name}</span><strong>${number}</strong><small>${detail}</small></div></div>`;
+    const row = ({ m, label }) =>
+      `<a class="vbc-priority-row" href="/profile/${encodeURIComponent(m.id)}" data-care-route=""><span class="avatar small">${esc((m.first || "")[0])}${esc((m.last || "")[0])}</span><span class="vbc-priority-person"><strong>${esc(m.first + " " + m.last)}</strong><small>${label} today</small></span><span class="badge ${label === "Birthday" ? "red" : "blue"}">${label}</span><span aria-hidden="true">›</span></a>`;
     return `<div class="vbc-overview">
       <section class="vbc-overview-hero"><div class="eyebrow">MEMBER CARE</div><h1>EVERY PERSON MATTERS.</h1><p>Your church family, thoughtfully cared for.</p><span class="vbc-hero-motto">A PEOPLE<br>A FAMILY<br>A PURPOSE</span></section>
       <div class="vbc-metrics">
-        ${metric("ACTIVE MEMBERS",loaded ? members.filter(m=>m.status === "Member").length : "—",loaded ? "Saved members" : "Awaiting member directory","members")}
-        ${metric("NEW MEMBERS & VISITORS",loaded ? members.filter(m=>m.status !== "Member").length : "—",loaded ? "Saved member records" : "Awaiting member directory","members")}
-        ${metric("FOLLOW-UPS","OPEN","View assigned follow-up work","check","accent action")}
-        ${metric("CELEBRATIONS TODAY",loaded ? celebrationsToday.length : "—",loaded ? `${birthdays.length} birthdays · ${anniversaries.length} anniversaries` : "Awaiting celebrations","celebrations","purple")}
+        ${metric("ACTIVE MEMBERS", loaded ? members.filter((m) => m.status === "Member").length : "—", loaded ? "Saved members" : "Awaiting member directory", "members")}
+        ${metric("NEW MEMBERS & VISITORS", loaded ? members.filter((m) => m.status !== "Member").length : "—", loaded ? "Saved member records" : "Awaiting member directory", "members")}
+        ${metric("Follow Through", "OPEN", "View assigned Follow Through work", "check", "accent action")}
+        ${metric("CELEBRATIONS TODAY", loaded ? celebrationsToday.length : "—", loaded ? `${birthdays.length} birthdays · ${anniversaries.length} anniversaries` : "Awaiting celebrations", "celebrations", "purple")}
       </div>
       <div class="vbc-overview-grid"><div class="vbc-overview-main">
-        <section class="vbc-panel"><div class="vbc-panel-head"><div><h2>Care priorities</h2><p>People and milestones that need your attention.</p></div><a href="/followups" class="vbc-panel-link">View follow-ups →</a></div>
-          ${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading saved member records…" : liveCelebrations.message || "Saved member records are unavailable.")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0,5).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No birthdays or anniversaries today. Visit Follow-ups to review assigned care work.</div>'}
+        <section class="vbc-panel"><div class="vbc-panel-head"><div><h2>Care priorities</h2><p>People and milestones that need your attention.</p></div><a href="/followups" class="vbc-panel-link">View Follow Through →</a></div>
+          ${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading saved member records…" : liveCelebrations.message || "Saved member records are unavailable.")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0, 5).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No birthdays or anniversaries today. Visit Follow Through to review assigned care work.</div>'}
         </section>
         <section class="vbc-panel vbc-quick-panel"><div class="vbc-panel-head"><div><h2>Quick actions</h2><p>Common tasks for church administration.</p></div></div><div class="vbc-quick-grid">
           <a href="/guests" data-care-route=""><span class="vbc-quick-icon red">${icon("members")}</span><strong>Review guests</strong><small>Manage visitor submissions</small><b>↗</b></a>
-          <a href="/followups"><span class="vbc-quick-icon violet">${icon("check")}</span><strong>Assign follow-up</strong><small>Coordinate care actions</small><b>↗</b></a>
+          <a href="/followups"><span class="vbc-quick-icon violet">${icon("check")}</span><strong>Assign Follow Through</strong><small>Coordinate care actions</small><b>↗</b></a>
           <a href="/members" data-care-route=""><span class="vbc-quick-icon blue">${icon("plus")}</span><strong>Members</strong><small>Open member directory</small><b>↗</b></a>
           <a href="/celebrations" data-care-route=""><span class="vbc-quick-icon pink">${icon("celebrations")}</span><strong>Celebrations</strong><small>Birthdays and anniversaries</small><b>↗</b></a>
         </div></section>
       </div><aside class="vbc-overview-aside">
-        <section class="vbc-panel vbc-calendar-panel"><div class="vbc-panel-head"><h2>${monthLabel}</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View calendar →</a></div><div class="vbc-calendar-grid">${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>`<span class="vbc-calendar-weekday">${d}</span>`).join("")}${monthGrid}</div></section>
-        <section class="vbc-panel"><div class="vbc-panel-head"><h2>Today's celebrations</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View all →</a></div>${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading…" : "Unavailable")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0,4).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No celebrations today.</div>'}</section>
+        <section class="vbc-panel vbc-calendar-panel"><div class="vbc-panel-head"><h2>${monthLabel}</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View calendar →</a></div><div class="vbc-calendar-grid">${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => `<span class="vbc-calendar-weekday">${d}</span>`).join("")}${monthGrid}</div></section>
+        <section class="vbc-panel"><div class="vbc-panel-head"><h2>Today's celebrations</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View all →</a></div>${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading…" : "Unavailable")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0, 4).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No celebrations today.</div>'}</section>
       </aside></div>
       <section class="vbc-panel vbc-programmes-shortcut"><div class="vbc-panel-head"><div><h2>Upcoming programmes</h2><p>Next scheduled programmes from the Programmes tab.</p></div><a href="/programmes" data-care-route="" class="vbc-panel-link">View programmes →</a></div>${upcomingProgrammeCards()}</section>
       <p class="vbc-overview-footnote">Member statistics and celebrations use saved records. Messaging remains paused.</p>
     </div>`;
   }
   function upcomingProgrammeCards() {
-    // Share the same in-memory programme records as the Programmes tab.
-    // This is a frontend demo source, not a persistent Supabase programme feed.
+    if (options.memberDirectorySaved && liveProgrammes.status !== "ready")
+      return `<div class="vbc-panel-empty" role="status">${esc(liveProgrammes.status === "loading" ? "Loading saved programmes…" : liveProgrammes.message)}</div>`;
     const today = lagosToday().iso;
     const upcoming = state.events
-      .filter((event) => typeof event.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(event.date) && event.date >= today)
-      .sort((a, b) => a.date.localeCompare(b.date) || String(a.time || "").localeCompare(String(b.time || "")))
+      .map((e) => ({ ...e, date: programmeDate(e) }))
+      .filter(
+        (event) =>
+          typeof event.date === "string" &&
+          /^\d{4}-\d{2}-\d{2}$/.test(event.date) &&
+          event.date >= today,
+      )
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) ||
+          String(a.time || "").localeCompare(String(b.time || "")),
+      )
       .slice(0, 3);
-    if (!upcoming.length) return '<div class="vbc-panel-empty">No upcoming programmes have been added. Visit Programmes to create one.</div>';
-    const artwork = ["/programme-images/family-friends.jpg", "/programme-images/worship.jpg", "/programme-images/welcome.jpg"];
-    return `<div class="vbc-upcoming-grid">${upcoming.map((event) => {
-      const index = state.events.findIndex((item) => item.id === event.id);
-      const image = event.image || artwork[Math.max(index, 0) % artwork.length];
-      const parsed = new Date(`${event.date}T12:00:00Z`);
-      const day = new Intl.DateTimeFormat("en-GB", { day: "2-digit", timeZone: "UTC" }).format(parsed);
-      const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(parsed).toUpperCase();
-      return `<a href="/programmes" data-care-route="" class="vbc-upcoming-card" aria-label="View programme: ${esc(event.title)}">
-        <span class="vbc-upcoming-art"><img src="${esc(image)}" alt="" loading="lazy" /><span class="vbc-upcoming-date"><strong>${day}</strong><small>${month}</small></span></span>
+    if (!upcoming.length)
+      return '<div class="vbc-panel-empty">No upcoming programmes have been added. Visit Programmes to create one.</div>';
+    const artwork = [
+      "/programme-images/family-friends.jpg",
+      "/programme-images/worship.jpg",
+      "/programme-images/welcome.jpg",
+    ];
+    return `<div class="vbc-upcoming-grid">${upcoming
+      .map((event) => {
+        const index = state.events.findIndex((item) => item.id === event.id);
+        const image =
+          event.image ||
+          (options.memberDirectorySaved
+            ? ""
+            : artwork[Math.max(index, 0) % artwork.length]);
+        const parsed = new Date(`${event.date}T12:00:00Z`);
+        const day = new Intl.DateTimeFormat("en-GB", {
+          day: "2-digit",
+          timeZone: "UTC",
+        }).format(parsed);
+        const month = new Intl.DateTimeFormat("en-GB", {
+          month: "short",
+          timeZone: "UTC",
+        })
+          .format(parsed)
+          .toUpperCase();
+        return `<a href="/programmes" data-care-route="" class="vbc-upcoming-card" aria-label="View programme: ${esc(event.title)}">
+        <span class="vbc-upcoming-art">${image ? `<img src="${esc(image)}" alt="${esc(event.title)} flyer" loading="lazy" />` : ""}<span class="vbc-upcoming-date"><strong>${day}</strong><small>${month}</small></span></span>
         <span class="vbc-upcoming-body"><strong>${esc(event.title)}</strong><small>${esc(event.time || "Time not set")} · ${esc(event.venue || "Venue not set")}</small></span>
         <span class="vbc-upcoming-arrow" aria-hidden="true">→</span>
       </a>`;
-    }).join("")}</div>`;
+      })
+      .join("")}</div>`;
   }
   function filteredMembers() {
     return state.members.filter(
@@ -380,7 +709,7 @@ export function mountCareUI(root, options = {}) {
               .join("") ||
             '<div class="list-empty">No messages recorded for this member.</div>'
           }</section>`
-        : `<div class="grid two"><div class="grid"><section class="card"><div class="card-head"><h2>Contact information</h2></div><div class="card-pad"><dl class="detail-list"><div><dt>Email</dt><dd>${esc(m.email || "Not set")}</dd></div><div><dt>Phone</dt><dd>${esc(m.phone || "Not set")}</dd></div><div><dt>Occupation</dt><dd>${esc(m.occupation || "Not set")}</dd></div><div><dt>First visit</dt><dd>${dateLabel(m.joined)}</dd></div><div class="span-two"><dt>Residential address</dt><dd>${esc(m.address || "Not set")}</dd></div></dl></div></section><section class="card"><div class="card-head"><h2>Important dates</h2></div><div class="card-pad"><dl class="detail-list"><div><dt>Birthday</dt><dd>${celebrationDate(m.birthday)}</dd></div><div><dt>Wedding anniversary</dt><dd>${celebrationDate(m.anniversary)}</dd></div></dl></div></section></div><div class="grid"><section class="card"><div class="card-head"><h2>Message preferences</h2></div><div class="card-pad"><div class="settings-row"><strong>Email</strong>${badge(m.emailOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>SMS</strong>${badge(m.smsOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Celebrations</strong>${badge(m.celebrationOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Programme invites</strong>${badge(m.programmeOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Monthly newsletter</strong>${badge(m.newsletterOpt ? "Enabled" : "Off")}</div><p class="help-text">Preferences come from registration or a member’s preference link. Changes are recorded with their date and source in production.</p>${btn("Preview preference page", "preview-preferences", "soft w100", 'data-id="' + m.id + '"')}</div></section><section class="card"><div class="card-head"><h2>Care note</h2></div><form id="note-form" class="card-pad" data-id="${m.id}"><div class="field"><label for="care-note">Private team note</label><textarea id="care-note" placeholder="Add a useful follow-up note…">${esc(m.notes)}</textarea></div><button class="btn" type="submit">Save note</button></form></section></div></div>`
+        : `<div class="grid two"><div class="grid"><section class="card"><div class="card-head"><h2>Contact information</h2></div><div class="card-pad"><dl class="detail-list"><div><dt>Email</dt><dd>${esc(m.email || "Not set")}</dd></div><div><dt>Phone</dt><dd>${esc(m.phone || "Not set")}</dd></div><div><dt>Occupation</dt><dd>${esc(m.occupation || "Not set")}</dd></div><div><dt>First visit</dt><dd>${dateLabel(m.joined)}</dd></div><div class="span-two"><dt>Residential address</dt><dd>${esc(m.address || "Not set")}</dd></div></dl></div></section><section class="card"><div class="card-head"><h2>Important dates</h2></div><div class="card-pad"><dl class="detail-list"><div><dt>Birthday</dt><dd>${celebrationDate(m.birthday)}</dd></div><div><dt>Wedding anniversary</dt><dd>${celebrationDate(m.anniversary)}</dd></div></dl></div></section></div><div class="grid"><section class="card"><div class="card-head"><h2>Message preferences</h2></div><div class="card-pad"><div class="settings-row"><strong>Email</strong>${badge(m.emailOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>SMS</strong>${badge(m.smsOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Celebrations</strong>${badge(m.celebrationOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Programme invites</strong>${badge(m.programmeOpt ? "Enabled" : "Off")}</div><div class="settings-row"><strong>Monthly newsletter</strong>${badge(m.newsletterOpt ? "Enabled" : "Off")}</div><p class="help-text">Preferences come from registration or a member’s preference link. Changes are recorded with their date and source in production.</p>${btn("Preview preference page", "preview-preferences", "soft w100", 'data-id="' + m.id + '"')}</div></section><section class="card"><div class="card-head"><h2>Care note</h2></div><form id="note-form" class="card-pad" data-id="${m.id}"><div class="field"><label for="care-note">Private team note</label><textarea id="care-note" placeholder="Add a useful Follow Through note…">${esc(m.notes)}</textarea></div><button class="btn" type="submit">Save note</button></form></section></div></div>`
     }`;
   }
   function memberDialog(id) {
@@ -411,7 +740,13 @@ export function mountCareUI(root, options = {}) {
     );
   }
   function celebrations() {
-    if (liveCelebrations.status !== "ready") return title("Remember their milestones", "Saved member birthdays and anniversaries") + `<section class="card">${celebrationNotice()}</section>`;
+    if (liveCelebrations.status !== "ready")
+      return (
+        title(
+          "Remember their milestones",
+          "Saved member birthdays and anniversaries",
+        ) + `<section class="card">${celebrationNotice()}</section>`
+      );
     const month = state.calMonth;
     const events = liveMembers().filter(
       (m) =>
@@ -422,9 +757,12 @@ export function mountCareUI(root, options = {}) {
     );
     const first = new Date(state.calYear, month, 1).getDay();
     const days = new Date(state.calYear, month + 1, 0).getDate();
-    const monthName = new Date(state.calYear, month, 1).toLocaleDateString("en-GB", {
-      month: "long",
-    });
+    const monthName = new Date(state.calYear, month, 1).toLocaleDateString(
+      "en-GB",
+      {
+        month: "long",
+      },
+    );
     return (
       title(
         "Remember their milestones",
@@ -445,24 +783,43 @@ export function mountCareUI(root, options = {}) {
       )}</div><div class="card-foot hint">${events.length} ${state.calType === "birthday" ? "birthdays" : "anniversaries"} this month · Times shown in Lagos time</div></section><div class="grid"><section class="card"><div class="card-head"><h2>${state.calDay} ${monthName}</h2>${badge(dayEvents.length + " people")}</div>${dayEvents.map((m) => liveMemberRow(m, badge(m.celebrationOpt && (m.emailOpt || m.smsOpt) ? "Greeting permitted" : "No greeting permission"))).join("") || '<div class="list-empty"><div class="empty-symbol">♡</div><h3>A quiet day</h3><p class="hint mt">No ' + (state.calType === "birthday" ? "birthdays" : "anniversaries") + " on this date.</p></div>"}</section><section class="card"><div class="card-head"><h2>Greeting preview</h2></div><div class="card-pad"><p class="hint">${state.calType === "birthday" ? "Birthday blessing" : "Anniversary blessing"} · Personalised for ${esc(dayEvents[0]?.first || "a member")}</p><div class="sms-bubble">${dayEvents.length ? esc(personalise(state.templates[state.calType === "birthday" ? 0 : 1].sms, dayEvents[0])) : "Select a date with a saved member celebration to preview a greeting."}</div><div class="mt">${btn("Edit template", "celebration-template", "w100", 'data-id="' + (state.calType === "birthday" ? "t1" : "t2") + '"')}</div></div></section></div></div>`
     );
   }
-  function programmes() {
+  function prototypeProgrammes() {
     return (
       title(
         "Gather the family",
         "Programme details and invitations, kept together.",
         btn(`${icon("plus")} Create programme`, "add-event", "primary"),
       ) +
-      `<div class="grid three programme-grid">${state.events.map((e, index) => {
-        const image = e.image || ["/programme-images/family-friends.jpg", "/programme-images/worship.jpg", "/programme-images/welcome.jpg"][index % 3];
-        const date = new Date(e.date + "T12:00:00Z");
-        const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(date).toUpperCase();
-        const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(date);
-        const isPast = e.date < lagosToday().iso;
-        return `<article class="card event-card event-card-visual" style="--programme-image:url('${esc(image)}')"><div class="programme-cover"><div class="programme-cover-top"><span class="programme-status ${isPast ? "past" : ""}"><span class="programme-dot"></span>${isPast ? "Past programme" : "Upcoming"}</span><span class="programme-date"><strong>${esc(e.date.slice(8))}</strong><small>${month} ${esc(e.date.slice(0, 4))}<br>${weekday}</small></span></div><h2 class="programme-cover-title">${esc(e.title)}</h2></div><div class="card-pad programme-details"><p>${esc(e.description)}</p><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><div class="event-meta">${icon("clock")}${esc(e.time)} · ${dateLabel(e.date)}</div><div class="actions mt">${btn("Create invite", "event-campaign", "small primary", 'data-id="' + e.id + '"')}${btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"')}</div></div></article>`;
-      }).join("")}</div><div class="notice mt">These programmes are fictional examples for reviewing the invitation workflow. Programme artwork is illustrative.</div>`
+      `<div class="grid three programme-grid">${state.events
+        .map((e, index) => {
+          const image =
+            e.image ||
+            [
+              "/programme-images/family-friends.jpg",
+              "/programme-images/worship.jpg",
+              "/programme-images/welcome.jpg",
+            ][index % 3];
+          const date = new Date(e.date + "T12:00:00Z");
+          const month = new Intl.DateTimeFormat("en-GB", {
+            month: "short",
+            timeZone: "UTC",
+          })
+            .format(date)
+            .toUpperCase();
+          const weekday = new Intl.DateTimeFormat("en-GB", {
+            weekday: "long",
+            timeZone: "UTC",
+          }).format(date);
+          const isPast = e.date < lagosToday().iso;
+          return `<article class="card event-card event-card-visual" style="--programme-image:url('${esc(image)}')"><div class="programme-cover"><div class="programme-cover-top"><span class="programme-status ${isPast ? "past" : ""}"><span class="programme-dot"></span>${isPast ? "Past programme" : "Upcoming"}</span><span class="programme-date"><strong>${esc(e.date.slice(8))}</strong><small>${month} ${esc(e.date.slice(0, 4))}<br>${weekday}</small></span></div><h2 class="programme-cover-title">${esc(e.title)}</h2></div><div class="card-pad programme-details"><p>${esc(e.description)}</p><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><div class="event-meta">${icon("clock")}${esc(e.time)} · ${dateLabel(e.date)}</div><div class="actions mt">${btn("Create invite", "event-campaign", "small primary", 'data-id="' + e.id + '"')}${btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"')}</div></div></article>`;
+        })
+        .join(
+          "",
+        )}</div><div class="notice mt">These programmes are fictional examples for reviewing the invitation workflow. Programme artwork is illustrative.</div>`
     );
   }
   function eventDialog(id) {
+    if (options.memberDirectorySaved) return liveEventDialog(id);
     const e = state.events.find((e) => e.id === id) || {
       title: "",
       date: "",
@@ -1389,7 +1746,7 @@ export function mountCareUI(root, options = {}) {
         btn("Try fictional visitor", "sample-join") +
           link("Message preferences", "preferences"),
       ) +
-      `<div class="public-shell"><aside class="public-intro"><img src="/assets/image-7d4e31b34082.png" alt="Vine Branch Church"><div class="eyebrow mt">Welcome to the family</div><h2>There’s a place<br>for you here.</h2><p>We’re so glad you joined us. Help us get to know you and stay connected after your visit.</p><div class="intro-foot">“Come thou with us, and we will do thee good.”<br><br>Heaven-backed. Bible-based.<br>Practical. For real.</div></aside><section class="public-form">${state.joinDone ? `<div class="success-view" style="padding:12px 0"><div class="success-mark">✓</div><h2>We’re so glad you came!</h2><p>Thank you for connecting with us, ${esc(j.other_names)}.</p><p>Your presence at Vine Branch Church means so much to us. We’re delighted you worshipped with us, and we look forward to getting to know you better.</p><div class="notice"><strong>This is just the beginning!</strong><br>We look forward to praying with you, helping you discover your place in our church family, and welcoming you again.</div><p>We can’t wait to see you again!<br>“Come thou with us, and we will do thee good.”</p><p>With love,<br><strong>The Vine Branch Church Family</strong></p><div class="actions" style="justify-content:center">${link("View new visitor record", "profile/" + j.memberId, "primary")}${btn("Try again", "restart-join")}</div><p class="help-text">Preview complete · The fictional record exists only until refresh.</p></div>` : `<div class="eyebrow">Step ${step + 1} of 4</div><h2>${["Let’s start with you.", "Let’s stay in touch.", "Your faith. Your visit.", "One final look."][step]}</h2><p>${["Share a few details so we can welcome you personally.", "Choose how you would like us to keep in touch.", "These questions help us welcome you meaningfully.", "Check your details and how we may contact you."][step]}</p><div class="public-step"><span style="width:${(step + 1) * 25}%"></span></div><form id="join-form" novalidate><div id="join-errors"></div>${step === 0 ? `<div class="form-grid">${field("join-surname", "Surname <span>*</span>", j.surname)}${field("join-other_names", "Other names <span>*</span>", j.other_names)}${field("join-visit_date", "Date of visit <span>*</span>", j.visit_date || "2026-10-08", "date")}${field("join-occupation", "Occupation", j.occupation)}${select("join-gender", "Gender", ["Prefer not to say", "Female", "Male"], j.gender || "Prefer not to say")}${select("join-age_range", "Age range", ["Prefer not to say", "Under 18", "18–25", "26–35", "36–45", "46–60", "Over 60"], j.age_range || "Prefer not to say")}${select("join-marital_status", "Marital status", ["Prefer not to say", "Single", "Married", "Other"], j.marital_status || "Prefer not to say")}</div>` : step === 1 ? `<div class="form-grid">${field("join-phone", "Mobile number <span>*</span>", j.phone, "tel", 'placeholder="08000000000"')}${field("join-email", "Email", j.email, "email", 'placeholder="you@example.com"')}<div class="span-two">${field("join-residential_address", "Residential address", j.residential_address)}</div>${field("join-birthday", "Birthday (optional)", j.birthday ? "2000-" + j.birthday : "", "date")}${j.marital_status === "Married" ? field("join-anniversary", "Wedding anniversary (optional)", j.anniversary ? "2000-" + j.anniversary : "", "date") : ""}</div><p class="hint">Only the month and day are used for celebrations. You may leave these dates blank.</p><h3 class="mt">Your preferred channels</h3><p class="hint">Email and SMS are selected initially. Untick either option to opt out. Messages require confirmed contact permission on the final step.</p>${check("join-emailOpt", "Email", j.emailOpt !== false)}${check("join-smsOpt", "SMS / text messages", j.smsOpt !== false)}<h3 class="mt">What would you like to receive?</h3>${check("join-celebrationOpt", "Birthday & anniversary greetings", j.celebrationOpt)}${check("join-programmeOpt", "Special programme invitations", j.programmeOpt)}${check("join-newsletterOpt", "Monthly church newsletter", j.newsletterOpt)}` : step === 2 ? `<div class="form-grid">${select("join-born_again", "Are you born again?", ["Prefer not to say", "Yes", "No", "I would like to know more"], j.born_again || "Prefer not to say")}${select("join-home_visit", "Would you like a home visit?", ["Prefer not to say", "Yes", "No"], j.home_visit || "Prefer not to say")}${select("join-discovery_source", "How did you hear about us?", ["Select an option", "A friend or family", "Social media", "Church website", "Passing by", "Other"], j.discovery_source || "Select an option")}${field("join-invited_by", "Who invited you?", j.invited_by)}<div class="span-two">${field("join-discovery_details", "Any other details?", j.discovery_details)}</div></div>` : `<dl class="detail-list"><div><dt>Name</dt><dd>${esc(j.other_names + " " + j.surname)}</dd></div><div><dt>Visit date</dt><dd>${dateLabel(j.visit_date)}</dd></div><div><dt>Mobile</dt><dd>${esc(j.phone)}</dd></div><div><dt>Email</dt><dd>${esc(j.email || "Not provided")}</dd></div><div><dt>Birthday</dt><dd>${celebrationDate(j.birthday)}</dd></div><div><dt>Anniversary</dt><dd>${celebrationDate(j.anniversary)}</dd></div><div class="span-two"><dt>Message choices</dt><dd>${[j.emailOpt ? "Email" : "", j.smsOpt ? "SMS" : ""].filter(Boolean).join(" & ") || "No message channels"} · ${[j.celebrationOpt ? "Celebrations" : "", j.programmeOpt ? "Programme invites" : "", j.newsletterOpt ? "Newsletter" : ""].filter(Boolean).join(", ") || "No message topics"}</dd></div></dl><div class="notice mt">You can update your message preferences later. Your details are used by the church to welcome you and follow up on your visit.</div>${check("join-contact_consent", 'I give Vine Branch Church permission to contact me about my visit. <span style="color:var(--required,var(--red))">*</span>', j.contact_consent)}`}<div class="button-row">${step ? btn("Back", "join-back") : link("Church office", "overview")}<button class="btn primary" type="submit">${step === 3 ? "Submit guest card" : "Continue"}</button></div></form>`}</section></div>`
+      `<div class="public-shell"><aside class="public-intro"><img src="/assets/image-7d4e31b34082.png" alt="Vine Branch Church"><div class="eyebrow mt">Welcome to the family</div><h2>There’s a place<br>for you here.</h2><p>We’re so glad you joined us. Help us get to know you and stay connected after your visit.</p><div class="intro-foot">“Come thou with us, and we will do thee good.”<br><br>Heaven-backed. Bible-based.<br>Practical. For real.</div></aside><section class="public-form">${state.joinDone ? `<div class="success-view" style="padding:12px 0"><div class="success-mark">✓</div><h2>We’re so glad you came!</h2><p>Thank you for connecting with us, ${esc(j.other_names)}.</p><p>Your presence at Vine Branch Church means so much to us. We’re delighted you worshipped with us, and we look forward to getting to know you better.</p><div class="notice"><strong>This is just the beginning!</strong><br>We look forward to praying with you, helping you discover your place in our church family, and welcoming you again.</div><p>We can’t wait to see you again!<br>“Come thou with us, and we will do thee good.”</p><p>With love,<br><strong>The Vine Branch Church Family</strong></p><div class="actions" style="justify-content:center">${link("View new visitor record", "profile/" + j.memberId, "primary")}${btn("Try again", "restart-join")}</div><p class="help-text">Preview complete · The fictional record exists only until refresh.</p></div>` : `<div class="eyebrow">Step ${step + 1} of 4</div><h2>${["Let’s start with you.", "Let’s stay in touch.", "Your faith. Your visit.", "One final look."][step]}</h2><p>${["Share a few details so we can welcome you personally.", "Choose how you would like us to keep in touch.", "These questions help us welcome you meaningfully.", "Check your details and how we may contact you."][step]}</p><div class="public-step"><span style="width:${(step + 1) * 25}%"></span></div><form id="join-form" novalidate><div id="join-errors"></div>${step === 0 ? `<div class="form-grid">${field("join-surname", "Surname <span>*</span>", j.surname)}${field("join-other_names", "Other names <span>*</span>", j.other_names)}${field("join-visit_date", "Date of visit <span>*</span>", j.visit_date || "2026-10-08", "date")}${field("join-occupation", "Occupation", j.occupation)}${select("join-gender", "Gender", ["Prefer not to say", "Female", "Male"], j.gender || "Prefer not to say")}${select("join-age_range", "Age range", ["Prefer not to say", "Under 18", "18–25", "26–35", "36–45", "46–60", "Over 60"], j.age_range || "Prefer not to say")}${select("join-marital_status", "Marital status", ["Prefer not to say", "Single", "Married", "Other"], j.marital_status || "Prefer not to say")}</div>` : step === 1 ? `<div class="form-grid">${field("join-phone", "Mobile number <span>*</span>", j.phone, "tel", 'placeholder="08000000000"')}${field("join-email", "Email", j.email, "email", 'placeholder="you@example.com"')}<div class="span-two">${field("join-residential_address", "Residential address", j.residential_address)}</div>${field("join-birthday", "Birthday (optional)", j.birthday ? "2000-" + j.birthday : "", "date")}${j.marital_status === "Married" ? field("join-anniversary", "Wedding anniversary (optional)", j.anniversary ? "2000-" + j.anniversary : "", "date") : ""}</div><p class="hint">Only the month and day are used for celebrations. You may leave these dates blank.</p><h3 class="mt">Your preferred channels</h3><p class="hint">Email and SMS are selected initially. Untick either option to opt out. Messages require confirmed contact permission on the final step.</p>${check("join-emailOpt", "Email", j.emailOpt !== false)}${check("join-smsOpt", "SMS / text messages", j.smsOpt !== false)}<h3 class="mt">What would you like to receive?</h3>${check("join-celebrationOpt", "Birthday & anniversary greetings", j.celebrationOpt)}${check("join-programmeOpt", "Special programme invitations", j.programmeOpt)}${check("join-newsletterOpt", "Monthly church newsletter", j.newsletterOpt)}` : step === 2 ? `<div class="form-grid">${select("join-born_again", "Are you born again?", ["Prefer not to say", "Yes", "No", "I would like to know more"], j.born_again || "Prefer not to say")}${select("join-home_visit", "Would you like a home visit?", ["Prefer not to say", "Yes", "No"], j.home_visit || "Prefer not to say")}${select("join-discovery_source", "How did you hear about us?", ["Select an option", "A friend or family", "Social media", "Church website", "Passing by", "Other"], j.discovery_source || "Select an option")}${field("join-invited_by", "Who invited you?", j.invited_by)}<div class="span-two">${field("join-discovery_details", "Any other details?", j.discovery_details)}</div></div>` : `<dl class="detail-list"><div><dt>Name</dt><dd>${esc(j.other_names + " " + j.surname)}</dd></div><div><dt>Visit date</dt><dd>${dateLabel(j.visit_date)}</dd></div><div><dt>Mobile</dt><dd>${esc(j.phone)}</dd></div><div><dt>Email</dt><dd>${esc(j.email || "Not provided")}</dd></div><div><dt>Birthday</dt><dd>${celebrationDate(j.birthday)}</dd></div><div><dt>Anniversary</dt><dd>${celebrationDate(j.anniversary)}</dd></div><div class="span-two"><dt>Message choices</dt><dd>${[j.emailOpt ? "Email" : "", j.smsOpt ? "SMS" : ""].filter(Boolean).join(" & ") || "No message channels"} · ${[j.celebrationOpt ? "Celebrations" : "", j.programmeOpt ? "Programme invites" : "", j.newsletterOpt ? "Newsletter" : ""].filter(Boolean).join(", ") || "No message topics"}</dd></div></dl><div class="notice mt">You can update your message preferences later. Your details are used by the church to welcome you and Follow Through on your visit.</div>${check("join-contact_consent", 'I give Vine Branch Church permission to contact me about my visit. <span style="color:var(--required,var(--red))">*</span>', j.contact_consent)}`}<div class="button-row">${step ? btn("Back", "join-back") : link("Church office", "overview")}<button class="btn primary" type="submit">${step === 3 ? "Submit guest card" : "Continue"}</button></div></form>`}</section></div>`
     );
   }
   function focusJoinStep() {
@@ -1675,6 +2032,7 @@ export function mountCareUI(root, options = {}) {
     if (b.disabled) return;
     const acts = {
       close: () => {
+        if (eventSaving) return;
         modal.close();
         modal.classList.remove("email-modal");
       },
@@ -1795,7 +2153,10 @@ export function mountCareUI(root, options = {}) {
             address: "",
             occupation: "",
           });
-        toast(ready.length + " records imported. Email/SMS preferences were initialized for available contact channels; verify before sending.");
+        toast(
+          ready.length +
+            " records imported. Email/SMS preferences were initialized for available contact channels; verify before sending.",
+        );
         state.importStep = 0;
         go("members");
       },
@@ -1830,7 +2191,11 @@ export function mountCareUI(root, options = {}) {
         render();
       },
       "cal-month": () => {
-        const nextMonth = new Date(state.calYear, state.calMonth + Number(b.dataset.delta), 1);
+        const nextMonth = new Date(
+          state.calYear,
+          state.calMonth + Number(b.dataset.delta),
+          1,
+        );
         state.calMonth = nextMonth.getMonth();
         state.calYear = nextMonth.getFullYear();
         state.calDay = 1;
@@ -1840,6 +2205,7 @@ export function mountCareUI(root, options = {}) {
         state.templateId = id;
         go("templates");
       },
+      "refresh-programmes": () => refreshProgrammes(),
       "add-event": () => eventDialog(),
       "edit-event": () => eventDialog(id),
       "event-campaign": () =>
@@ -1975,7 +2341,7 @@ export function mountCareUI(root, options = {}) {
         focusJoinStep();
       },
       "restart-join": () => {
-        state.join = {emailOpt:true,smsOpt:true};
+        state.join = { emailOpt: true, smsOpt: true };
         state.joinStep = 0;
         state.joinDone = false;
         render();
@@ -2011,7 +2377,7 @@ export function mountCareUI(root, options = {}) {
     };
     if (acts[a]) acts[a]();
   });
-  listen(root, "submit", (e) => {
+  listen(root, "submit", async (e) => {
     const f = e.target;
     if (!f.id) return;
     e.preventDefault();
@@ -2146,6 +2512,10 @@ export function mountCareUI(root, options = {}) {
       modal.close();
       render();
       toast("Member saved for this review session.");
+    }
+    if (f.id === "event-form" && options.memberDirectorySaved) {
+      await saveLiveProgramme(f);
+      return;
     }
     if (f.id === "event-form") {
       const value = (k) => $("#event-" + k).value.trim();
@@ -2532,9 +2902,46 @@ export function mountCareUI(root, options = {}) {
     window.history.replaceState(null, "", "/" + location.hash.slice(1));
   }
   render();
-  if (options.memberDirectorySaved) void refreshCelebrations();
-  listen(window, "focus", () => { if (["overview", "celebrations"].includes(currentRoute().split("/")[0])) void refreshCelebrations(); });
+  if (options.memberDirectorySaved) {
+    void refreshCelebrations();
+    void refreshProgrammes();
+  }
+  listen(window, "focus", () => {
+    if (["overview", "celebrations"].includes(currentRoute().split("/")[0]))
+      void refreshCelebrations();
+  });
+  let previewUrl = "";
+  listen(modal, "cancel", (e) => {
+    if (eventSaving) e.preventDefault();
+  });
+  listen(root, "change", (e) => {
+    if (e.target.id === "event-recurrence") {
+      const weekly = e.target.value === "weekly";
+      $("#event-date-wrap").hidden = weekly;
+      $("#event-weekday-wrap").hidden = !weekly;
+    }
+    if (e.target.id === "event-flyer") {
+      const f = e.target.closest("form");
+      delete f.dataset.uploaded;
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      const image = $("#event-flyer-preview"),
+        file = e.target.files[0];
+      image.hidden = !file;
+      if (file) {
+        previewUrl = URL.createObjectURL(file);
+        image.src = previewUrl;
+      }
+    }
+  });
+  listen(window, "focus", () => {
+    if (
+      !modal.open &&
+      ["overview", "programmes"].includes(currentRoute().split("/")[0])
+    )
+      void refreshProgrammes();
+  });
   return () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     disposeTheme();
     lifecycle.abort();
     clearTimeout(toast.timer);

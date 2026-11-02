@@ -81,7 +81,7 @@ export function createDemoState(defaultEmailDesign) {
       },
       {
         id: "c2",
-        name: "Welcome lunch follow-up",
+        name: "Welcome lunch Follow Through",
         event: "e3",
         channel: "email",
         audience: "new",

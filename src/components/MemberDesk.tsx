@@ -39,7 +39,7 @@ const roleLabels = {
   administrator: "Administrator",
   editor: "Editor",
   viewer: "Viewer",
-  followup_worker: "Follow-up Worker",
+  followup_worker: "Follow Through Worker",
 };
 const months = [
   "January",
@@ -388,7 +388,7 @@ export default function MemberDesk({
             ))}
           </nav>
           <div className="side-bottom">
-            <a href="/followups">Follow-up assignments →</a>
+            <a href="/followups">Follow Through assignments →</a>
             <a href="/join">
               <span className="side-mark">+</span> Visitor experience
             </a>
@@ -444,9 +444,9 @@ export default function MemberDesk({
               <a
                 className="vbc-followup-shortcut"
                 href="/followups"
-                aria-label="Open Follow-ups workspace"
+                aria-label="Open Follow Through workspace"
               >
-                <span aria-hidden="true">◎</span> Follow-ups{" "}
+                <span aria-hidden="true">◎</span> Follow Through{" "}
                 <span aria-hidden="true">↗</span>
               </a>
               <span className="time-zone">Africa / Lagos</span>

@@ -144,7 +144,7 @@ export async function runMemberBrowser(origin) {
     check("Missing consent evidence is explained", true);
     await page
       .getByRole("checkbox", {
-        name: "Visit and follow-up contact",
+        name: "Visit and Follow Through contact",
         exact: false,
       })
       .check();
@@ -191,7 +191,7 @@ export async function runMemberBrowser(origin) {
     await page
       .locator("#care-note-body")
       .fill(
-        "Fictional follow-up: welcomed at Sunday service. The team will call next week.",
+        "Fictional Follow Through: welcomed at Sunday service. The team will call next week.",
       );
     await page
       .getByRole("button", { name: "Save care note", exact: true })

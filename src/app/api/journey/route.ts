@@ -24,7 +24,7 @@ function failure(error: { code?: string; message?: string }) {
       : code === "23514" || code === "23502"
         ? "Check the required fields and allowed values."
         : status === 503
-          ? "Journey service is unavailable. Check migrations 018 and 019 and try again."
+          ? "Journey service is unavailable. Check migrations through 024 and try again."
           : error.message || "Unable to save.";
   return authJSON({ message }, status);
 }
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       page > 100000
     )
       return authJSON({ message: "Invalid search." }, 400);
-    const { data, error } = await client.rpc("care_journey_read", {
+    const { data, error } = await client.rpc("care_journey_register", {
       p_member: id,
       p_search: search,
       p_page: page,
