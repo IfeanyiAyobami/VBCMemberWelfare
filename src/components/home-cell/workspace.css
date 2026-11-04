@@ -2522,3 +2522,10 @@
 .hc-leader-more > :not(summary) {
   margin: 12px;
 }
+
+/* v4.7.1 — global hero headings must remain readable on light mobile surfaces. */
+@media (max-width: 760px) {
+  .hc-app:not(.hc-dark) .hc-hero h1 {
+    color: var(--hc-ink);
+  }
+}

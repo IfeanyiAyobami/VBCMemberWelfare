@@ -1,3 +1,11 @@
+# Current release: v4.8
+
+See VBC_v4_8_FRIEND_DASHBOARD_ONLY.md. Friend accounts now remain in their dedicated dashboard.
+
+# Current release: v4.7.1
+
+See VBC_v4_7_1_VERIFIED.md for verified integrations and setup.
+
 # Current release: v4.7
 
 See VBC_v4_7_LEADER_AND_FRIEND.md (no SQL; copy over v4.6 and deploy).

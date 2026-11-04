@@ -19,6 +19,7 @@ import {
   type DoneItem,
   type OutboxItem,
 } from "@/lib/journey/outbox";
+import FriendRegistration from "./FriendRegistration";
 import "./friend.css";
 
 /* ---------- dates (church time is Africa/Lagos) ---------- */
@@ -277,13 +278,11 @@ export default function FriendDesk({
   staff,
   dark,
   onTheme,
-  onFullView,
   onSignOut,
 }: {
   staff: StaffIdentity;
   dark: boolean;
   onTheme: () => void;
-  onFullView: () => void;
   onSignOut: () => void;
 }) {
   const uid = staff.user_id;
@@ -293,6 +292,12 @@ export default function FriendDesk({
     [loading, setLoading] = useState(true),
     [loadError, setLoadError] = useState(""),
     [tab, setTab] = useState<"today" | "people" | "done" | "help">("today"),
+    [celebrations, setCelebrations] = useState<
+      Array<{ memberId: string; name: string; kind: string }>
+    >([]),
+    [celebrationError, setCelebrationError] = useState(""),
+    [profileTab, setProfileTab] = useState<"overview" | "history">("overview"),
+    [registering, setRegistering] = useState(false),
     [search, setSearch] = useState(""),
     [peopleFilter, setPeopleFilter] = useState<"all" | "visitors" | "members">(
       "all",
@@ -320,6 +325,22 @@ export default function FriendDesk({
     [sending, setSending] = useState(false),
     [online, setOnline] = useState(true);
   const today = ymd(new Date());
+  useEffect(() => {
+    let live = true;
+    fetch("/api/journey/friend-celebrations", { cache: "no-store" })
+      .then(async (r) => {
+        const x = await r.json();
+        if (!r.ok) throw Error(x.message);
+        if (live) setCelebrations(x.items || []);
+      })
+      .catch(() => {
+        if (live)
+          setCelebrationError("Celebrations are temporarily unavailable.");
+      });
+    return () => {
+      live = false;
+    };
+  }, [uid]);
 
   const refreshLocal = useCallback(() => {
     setOutbox(loadOutbox(uid));
@@ -400,6 +421,7 @@ export default function FriendDesk({
 
   const openPerson = useCallback(async (id: string) => {
     setOpenId(id);
+    setProfileTab("overview");
     setDetail(null);
     setShowAllStory(false);
     window.scrollTo({ top: 0 });
@@ -872,8 +894,22 @@ export default function FriendDesk({
             <span className={"fm-pill fm-" + s.tone}>{s.text}</span>
           </div>
         </header>
+        <div className="fm-profile-actions">
+          {actionButtons(person)}
+          <button
+            className="fm-secondary"
+            onClick={() => begin(person, "in_person")}
+          >
+            Log outcome
+          </button>
+        </div>
+        <p className="fm-muted">
+          {person.contact_consent && person.followup_state === "active"
+            ? "✓ Contact permitted"
+            : "Contact paused · speak to your Coordinator"}
+        </p>
         <section className="fm-todo">
-          <span className="fm-label">WHAT TO DO</span>
+          <span className="fm-label">NEXT STEP</span>
           <p>{g.todo}</p>
         </section>
         {pending.has(person.member_id) && (
@@ -882,93 +918,155 @@ export default function FriendDesk({
             safe on this phone.
           </p>
         )}
-        <button
-          className="fm-big fm-big-church"
-          onClick={() => begin(person, "in_person", "church")}
+        <div
+          className="fm-profile-tabs"
+          role="group"
+          aria-label="Person information"
         >
-          <span className="fm-ic" aria-hidden="true">
-            ⛪
-          </span>
-          <span>
-            {firstName(person.name)} came to church
-            <small>Sunday or midweek · counts straight away</small>
-          </span>
-        </button>
-        <button className="fm-big" onClick={() => begin(person, "in_person")}>
-          <span className="fm-ic" aria-hidden="true">
-            💬
-          </span>
-          <span>
-            We talked in person
-            <small>Record a conversation without calling</small>
-          </span>
-        </button>
-        <section className="fm-story" aria-labelledby="fm-story-h">
-          <div className="fm-story-head">
-            <h2 id="fm-story-h">
-              {showAllStory
-                ? `${firstName(person.name)}\u2019s journey so far`
-                : "Latest on their journey"}
-            </h2>
-            {story.filter((x) => x.done).length > 3 && (
-              <span className="fm-muted">
-                {story.filter((x) => x.done).length} entries
-              </span>
-            )}
-          </div>
-          {!detail && <p className="fm-muted">Loading their story…</p>}
-          {detail && !story.length && (
-            <p className="fm-muted">
-              Nothing recorded yet. Your first call starts the story.
-            </p>
-          )}
-          <ol>
-            {(showAllStory
-              ? story
-              : [
-                  ...story.filter((x) => !x.done),
-                  ...story
-                    .filter((x) => x.done)
-                    .slice(-3)
-                    .reverse(),
-                ]
-            ).map((x, i) => (
-              <li key={i} className={x.done ? "" : "fm-future"}>
-                <span className="fm-dot" aria-hidden="true">
-                  {x.done ? "✓" : i + 1}
-                </span>
-                <span>
-                  <strong>{x.title}</strong> · {shortDate(x.at)}
-                  {x.text && <span className="fm-quote">{x.text}</span>}
-                </span>
-              </li>
-            ))}
-          </ol>
-          {story.filter((x) => x.done).length > 3 && (
+          <button
+            aria-pressed={profileTab === "overview"}
+            onClick={() => setProfileTab("overview")}
+          >
+            Overview
+          </button>
+          <button
+            aria-pressed={profileTab === "history"}
+            onClick={() => setProfileTab("history")}
+          >
+            History
+          </button>
+        </div>
+        {profileTab === "overview" && (
+          <>
+            <section className="fm-story">
+              <h2>Journey</h2>
+              <ol>
+                {[
+                  [
+                    "Previous church visit",
+                    !!(
+                      person.previous_visit_confirmed || person.first_visit_on
+                    ),
+                  ],
+                  ["Membership Sunday", !!person.official_joined_on],
+                  ["Foundation classes", !!(detail?.cfc?.completed_on || person.cfc_completed_on)],
+                  ["Continuing care", person.care_status === "completed"],
+                ].map(([label, complete], i) => (
+                  <li key={String(label)}>
+                    <span className="fm-dot">{complete ? "✓" : i + 1}</span>
+                    <span>
+                      <strong>{label}</strong>
+                      <span className="fm-quote">
+                        {complete ? "Recorded" : "Pending"}
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+            <section className="fm-card">
+              <h2>Contact details</h2>
+              <span>{person.phone || "Phone not provided"}</span>
+              <span>{person.email || "Email not provided"}</span>
+            </section>
             <button
-              className="fm-secondary fm-story-toggle"
-              onClick={() => setShowAllStory((v) => !v)}
-              aria-expanded={showAllStory}
+              className="fm-big fm-big-church"
+              onClick={() => begin(person, "in_person", "church")}
             >
-              {showAllStory
-                ? "Show latest only"
-                : `Show all ${story.filter((x) => x.done).length}`}
+              <span className="fm-ic" aria-hidden="true">
+                ⛪
+              </span>
+              <span>
+                {firstName(person.name)} came to church
+                <small>Sunday or midweek · counts straight away</small>
+              </span>
             </button>
-          )}
-        </section>
-        <button className="fm-link" onClick={onFullView}>
-          More options (full view)
-        </button>
-        {canContact(person) && (
-          <div className="fm-pinned">{actionButtons(person, true)}</div>
+            <button
+              className="fm-big"
+              onClick={() => begin(person, "in_person")}
+            >
+              <span className="fm-ic" aria-hidden="true">
+                💬
+              </span>
+              <span>
+                We talked in person
+                <small>Record a conversation without calling</small>
+              </span>
+            </button>
+          </>
         )}
+        {profileTab === "history" && (
+          <>
+            <section className="fm-story" aria-labelledby="fm-story-h">
+              <div className="fm-story-head">
+                <h2 id="fm-story-h">
+                  {showAllStory
+                    ? `${firstName(person.name)}\u2019s journey so far`
+                    : "Latest on their journey"}
+                </h2>
+                {story.filter((x) => x.done).length > 3 && (
+                  <span className="fm-muted">
+                    {story.filter((x) => x.done).length} entries
+                  </span>
+                )}
+              </div>
+              {!detail && <p className="fm-muted">Loading their story…</p>}
+              {detail && !story.length && (
+                <p className="fm-muted">
+                  Nothing recorded yet. Your first call starts the story.
+                </p>
+              )}
+              <ol>
+                {(showAllStory
+                  ? story
+                  : [
+                      ...story.filter((x) => !x.done),
+                      ...story
+                        .filter((x) => x.done)
+                        .slice(-3)
+                        .reverse(),
+                    ]
+                ).map((x, i) => (
+                  <li key={i} className={x.done ? "" : "fm-future"}>
+                    <span className="fm-dot" aria-hidden="true">
+                      {x.done ? "✓" : i + 1}
+                    </span>
+                    <span>
+                      <strong>{x.title}</strong> · {shortDate(x.at)}
+                      {x.text && <span className="fm-quote">{x.text}</span>}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+              {story.filter((x) => x.done).length > 3 && (
+                <button
+                  className="fm-secondary fm-story-toggle"
+                  onClick={() => setShowAllStory((v) => !v)}
+                  aria-expanded={showAllStory}
+                >
+                  {showAllStory
+                    ? "Show latest only"
+                    : `Show all ${story.filter((x) => x.done).length}`}
+                </button>
+              )}
+            </section>
+          </>
+        )}
+        <div className="fm-pinned">
+          <button
+            className="fm-save"
+            onClick={() => begin(person, "in_person")}
+          >
+            Log contact outcome
+          </button>
+        </div>
       </main>
     );
   } else if (tab === "done") {
     screen = (
       <main className="fm-main" aria-labelledby="fm-done-h">
         <h1 id="fm-done-h" className="fm-title">
-          DONE TODAY
+          FOLLOW THROUGH
         </h1>
         <p className="fm-muted">
           Your updates today. Pending updates send when your connection returns.
@@ -1043,9 +1141,6 @@ export default function FriendDesk({
           <button className="fm-secondary" onClick={onTheme}>
             {dark ? "Use light colours" : "Use dark colours"}
           </button>
-          <button className="fm-secondary" onClick={onFullView}>
-            Switch to full view
-          </button>
           <button
             className="fm-secondary"
             onClick={() => {
@@ -1091,6 +1186,14 @@ export default function FriendDesk({
         <h1 id="fm-home-h" className="fm-title">
           {tab === "today" ? "TODAY" : "MY PEOPLE"}
         </h1>
+        {tab === "people" && (
+          <button
+            className="fm-register-short"
+            onClick={() => setRegistering(true)}
+          >
+            + Register
+          </button>
+        )}
         <p className="fm-lead">
           {tab === "today"
             ? nice(today, { weekday: "long", day: "numeric", month: "long" })
@@ -1120,33 +1223,35 @@ export default function FriendDesk({
           <p role="status">Loading your people…</p>
         ) : tab === "today" ? (
           <>
-            <p className="fm-summary" aria-label="Your care summary">
-              {outstanding.length ? (
-                <>
-                  <strong>
-                    {outstanding.length === 1
-                      ? "1 to contact today"
-                      : `${outstanding.length} to contact today`}
-                  </strong>
-                  {overdue.length > 0 && (
-                    <>
-                      {" · "}
-                      <span className="fm-late-text">
-                        {overdue.length === 1
-                          ? "1 is late"
-                          : `${overdue.length} are late`}
-                      </span>
-                    </>
-                  )}
-                </>
-              ) : (
-                <strong>You&rsquo;re up to date</strong>
-              )}
-              {" · "}
-              <button className="fm-link fm-inline" onClick={() => setTab("people")}>
-                {people.length === 1 ? "1 person" : `${people.length} people`} in your care
+            <div className="fm-metrics" aria-label="Your care summary">
+              <button
+                onClick={() =>
+                  document
+                    .getElementById("fm-attention")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                <MobileIcon kind="done" />
+                <strong>{outstanding.length - overdue.length}</strong>
+                <span>Due today</span>
               </button>
-            </p>
+              <button
+                onClick={() =>
+                  document
+                    .getElementById("fm-attention")
+                    ?.scrollIntoView({ behavior: "smooth" })
+                }
+              >
+                <MobileIcon kind="today" />
+                <strong>{overdue.length}</strong>
+                <span>Overdue</span>
+              </button>
+              <button onClick={() => setTab("people")}>
+                <MobileIcon kind="people" />
+                <strong>{people.length}</strong>
+                <span>My people</span>
+              </button>
+            </div>
             <h2 id="fm-attention" className="fm-label">
               NEEDS YOUR ATTENTION
             </h2>
@@ -1176,6 +1281,52 @@ export default function FriendDesk({
                 <h2 className="fm-label">COMING UP</h2>
                 {groups.later.slice(0, 3).map(card)}
               </>
+            )}
+            <h2 className="fm-label">CELEBRATE TODAY</h2>
+            {celebrationError ? (
+              <p className="fm-muted" role="status">
+                {celebrationError}
+              </p>
+            ) : !celebrations.length ? (
+              <div className="fm-card">
+                <span className="fm-muted">
+                  No birthdays or anniversaries recorded today.
+                </span>
+              </div>
+            ) : (
+              celebrations.map((c) => (
+                <div className="fm-card" key={c.memberId + c.kind}>
+                  <button
+                    className="fm-card-open"
+                    onClick={() => void openPerson(c.memberId)}
+                  >
+                    <span className="fm-avatar">{initials(c.name)}</span>
+                    <span className="fm-card-text">
+                      <strong>{c.name}</strong>
+                      <span>{c.kind} today</span>
+                    </span>
+                  </button>
+                  {(() => {
+                    const p = people.find((p) => p.member_id === c.memberId);
+                    return p && canContact(p) ? (
+                      <a
+                        className="fm-secondary fm-greeting-link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        href={
+                          waLink(p) +
+                          "?text=" +
+                          encodeURIComponent(
+                            `Happy ${c.kind.toLowerCase()}, ${firstName(c.name)}! With love from your Vine Branch Church family.`,
+                          )
+                        }
+                      >
+                        Send greeting
+                      </a>
+                    ) : null;
+                  })()}
+                </div>
+              ))
             )}
             {!people.length && (
               <p className="fm-muted">
@@ -1222,7 +1373,10 @@ export default function FriendDesk({
                 </p>
               </div>
             )}
-            <button className="fm-secondary" onClick={onFullView}>
+            <button
+              className="fm-secondary"
+              onClick={() => setRegistering(true)}
+            >
               Register / import people
             </button>
           </>
@@ -1292,6 +1446,12 @@ export default function FriendDesk({
       </header>
 
       {screen}
+      {registering && (
+        <FriendRegistration
+          onClose={() => setRegistering(false)}
+          onSaved={() => void loadPeople()}
+        />
+      )}
 
       {!saved && !person && (
         <nav className="fm-tabs" aria-label="Friend mode">
@@ -1299,7 +1459,7 @@ export default function FriendDesk({
             [
               ["today", "Today"],
               ["people", "My people"],
-              ["done", "Done today"],
+              ["done", "Follow Through"],
               ["help", "Account"],
             ] as const
           ).map(([k, l]) => (

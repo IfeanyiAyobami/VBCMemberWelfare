@@ -989,3 +989,115 @@
   width: 100%;
   margin-top: 12px;
 }
+/* Approved Friend shell: registration is an in-dashboard sheet, never a staff view. */
+.fm-register-short {
+  align-self: flex-end;
+  margin-top: -54px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: #e51b25;
+  color: #fff !important;
+  font-weight: 600;
+}
+.fm-registration.vj-app {
+  display: contents;
+}
+.fm-registration-sheet {
+  padding: 16px 0;
+}
+.fm-registration-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.fm-registration-sheet fieldset {
+  border: 0;
+  padding: 0;
+  margin: 16px 0;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.fm-registration-sheet label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+}
+.fm-registration-sheet :is(input, select, textarea) {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--vb-line-strong);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--vb-surface);
+  color: var(--vb-fg);
+  font: inherit;
+  font-size: 16px;
+}
+.fm-registration-sheet input[type="checkbox"] {
+  width: 22px;
+  min-height: 22px;
+}
+.fm-registration-sheet .vj-check {
+  flex-direction: row;
+  align-items: center;
+}
+.fm-registration-sheet .vj-direct-search button {
+  min-height: 44px;
+  background: var(--vb-surface-2);
+  color: var(--vb-fg);
+  border: 1px solid var(--vb-line-strong);
+  border-radius: 10px;
+}
+.fm-registration-message {
+  padding: 12px;
+  border: 1px solid var(--vb-line-strong);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+.fm-app .fm-tabs {
+  z-index: 100;
+}
+.fm-profile-actions {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 8px;
+}
+.fm-profile-actions .fm-actions {
+  gap: 8px;
+}
+.fm-profile-actions .fm-secondary {
+  padding: 8px;
+  font-size: 13px;
+}
+.fm-profile-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--vb-line);
+}
+.fm-profile-tabs button {
+  flex: 1;
+  min-height: 48px;
+  background: transparent;
+  border: 0;
+  color: var(--vb-muted);
+}
+.fm-profile-tabs button[aria-pressed="true"] {
+  border-bottom: 3px solid #e51b25;
+  color: var(--vb-fg);
+  font-weight: 600;
+}
+.fm-card h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.fm-greeting-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vb-fg);
+  text-decoration: none;
+}

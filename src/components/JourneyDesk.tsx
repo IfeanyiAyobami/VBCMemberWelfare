@@ -267,7 +267,13 @@ function Badge({
 }) {
   return <span className={"vj-badge " + tone}>{children}</span>;
 }
-export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
+export default function JourneyDesk({
+  staff,
+  friendOnly: forcedFriendOnly = false,
+}: {
+  staff: StaffIdentity;
+  friendOnly?: boolean;
+}) {
   const [snapshot, setSnapshot] = useState<JourneySnapshot | null>(null),
     [view, setView] = useState("overview"),
     [tab, setTab] = useState("journey"),
@@ -286,8 +292,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     [menu, setMenu] = useState(false),
     [pending, setPending] = useState<string | null>(null),
     [palette, setPalette] = useState(false),
-    [importing, setImporting] = useState(false),
-    [friendMode, setFriendMode] = useState(true);
+    [importing, setImporting] = useState(false);
   const sequence = useRef(0),
     mounted = useRef(true),
     replay = useRef<{ body: string; id: string } | null>(null),
@@ -368,22 +373,6 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem("vbc-friend-mode") === "off")
-        setFriendMode(false);
-    } catch {
-      /* default to Friend mode */
-    }
-  }, []);
-  function chooseFriendMode(on: boolean) {
-    setFriendMode(on);
-    try {
-      localStorage.setItem("vbc-friend-mode", on ? "on" : "off");
-    } catch {
-      /* preference only */
-    }
-  }
   const caps = snapshot?.capabilities,
     detail = snapshot?.detail;
   const person =
@@ -1855,16 +1844,31 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       </>
     );
   }
-  const friendOnly = !!caps?.friend && !caps.coordinator && !caps.foundation;
-  if (friendOnly && friendMode)
+  const friendOnly =
+    forcedFriendOnly ||
+    (!!caps?.friend && !caps.coordinator && !caps.foundation);
+  if (friendOnly)
     return (
       <FriendDesk
         staff={staff}
         dark={dark}
         onTheme={theme}
-        onFullView={() => chooseFriendMode(false)}
         onSignOut={() => void signout()}
       />
+    );
+  if (!caps && staff.role === "followup_worker")
+    return (
+      <main className="fm-app fm-main">
+        <h1 className="fm-title">FOLLOW THROUGH</h1>
+        <p role={error ? "alert" : "status"}>
+          {error || "Verifying your dashboard access…"}
+        </p>
+        {error && (
+          <button className="fm-secondary" onClick={() => void load()}>
+            Try again
+          </button>
+        )}
+      </main>
     );
   return (
     <div className="vj-app">
@@ -1974,14 +1978,6 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             {selected ? "Person’s journey" : labels[view]}
           </div>
           <div className="vj-top-controls">
-            {friendOnly && (
-              <button
-                className="vj-secondary"
-                onClick={() => chooseFriendMode(true)}
-              >
-                Friend mode
-              </button>
-            )}
             <button
               className="vj-find"
               onClick={() => setPalette(true)}

@@ -146,19 +146,21 @@ export async function runFriendModeBrowser(page, origin) {
 
     // Done today and switching views.
     await page
-      .getByRole("button", { name: "Done today", exact: true })
+      .getByRole("button", { name: "Follow Through", exact: true })
       .click();
     await page.getByText("Came to church", { exact: false }).first().waitFor();
     await page.getByRole("button", { name: "Account", exact: true }).click();
-    await page.getByRole("button", { name: "Switch to full view" }).click();
-    await page
-      .getByRole("button", { name: "Friend mode", exact: true })
-      .click();
+    assert.equal(
+      await page.getByRole("button", { name: /full view/i }).count(),
+      0,
+    );
+    await page.evaluate(() => localStorage.setItem("vbc-friend-mode", "off"));
+    await page.goto(origin + "/followups#friends");
     await page.getByRole("heading", { name: "TODAY", exact: true }).waitFor();
-    await page.evaluate(() => localStorage.removeItem("vbc-friend-mode"));
+    assert.equal(await page.locator(".vj-sidebar").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
-      "PASS Friend mode for Friend-only accounts, full-view switch and Done today list",
+      "PASS Friend mode for Friend-only accounts, forced Friend-only shell and activity list",
     );
   } finally {
     setJourneyFriendOnly(false);

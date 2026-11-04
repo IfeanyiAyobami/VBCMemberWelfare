@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import JourneyDesk from "@/components/JourneyDesk";
 import CareApp from "@/components/CareApp";
 import MemberDesk from "@/components/MemberDesk";
@@ -27,8 +28,25 @@ export default async function CarePage({
   if (session.status === "forbidden") redirect("/access?reason=staff");
   if (session.status === "unauthenticated")
     redirect("/access?next=" + encodeURIComponent("/" + (path || "overview")));
-  if (session.staff.role === "followup_worker" && path !== "followups") redirect("/followups");
-  if (path === "followups") return <JourneyDesk staff={session.staff} />;
+  if (session.staff.role === "followup_worker" && path !== "followups")
+    redirect("/followups");
+  if (path === "followups") {
+    const client = await createClient();
+    const scope = await client.rpc("care_journey_register", {
+      p_member: null,
+      p_search: "",
+      p_page: 0,
+      p_view: "all",
+      p_stage: "all",
+    });
+    const caps = scope.data?.capabilities;
+    if (scope.error || !caps)
+      return (
+        <StaffAccess initialMessage="We cannot verify dashboard access right now. Please try again." />
+      );
+    const friendOnly = !!caps.friend && !caps.coordinator && !caps.foundation;
+    return <JourneyDesk staff={session.staff} friendOnly={friendOnly} />;
+  }
   if (path === "guests") return <MemberDesk staff={session.staff} guestMode />;
   if (screen[0] === "guest" && isMemberId(screen[1]))
     return <MemberDesk staff={session.staff} guestMode guestId={screen[1]} />;

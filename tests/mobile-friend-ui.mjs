@@ -58,8 +58,8 @@ const items = [
 ];
 let themes = 0,
   full = 0;
-globalThis.fetch = async () =>
-  Response.json({ items, total: items.length, policy: { service_types: [] } });
+globalThis.fetch = async (url) =>
+  Response.json(String(url).includes("friend-celebrations") ? {items:[]} : { items, total: items.length, policy: { service_types: [] } });
 const temp = new URL("../.mobile-ui-test.mjs", import.meta.url);
 const code = ts
   .transpileModule(await readFile("src/components/FriendDesk.tsx", "utf8"), {
@@ -74,8 +74,14 @@ const code = ts
     '"./src/lib/journey/model.ts"',
   )
   .replaceAll('"@/lib/journey/outbox"', '"./src/lib/journey/outbox.ts"')
+  .replace('import "./FriendRegistration";', "")
+  .replace(
+    'import FriendRegistration from "./FriendRegistration";',
+    'const FriendRegistration=()=>globalThis.__testReact.createElement("div",{role:"dialog"},"Friend registration");',
+  )
   .replace('import "./friend.css";', "");
 await writeFile(temp, code);
+globalThis.__testReact = React;
 const root = createRoot(document.getElementById("root"));
 const buttons = () => [...document.querySelectorAll("button")];
 const click = async (text) => {
@@ -98,15 +104,23 @@ try {
   });
   assert.equal(document.querySelector("h1").textContent, "TODAY");
   assert(!document.body.textContent.includes("Other worker person"));
-  {
-    const summary = document.querySelector(".fm-summary").textContent;
-    assert(summary.includes("1 to contact today"), summary);
-    assert(summary.includes("1 is late"), summary);
-    assert(summary.includes("2 people in your care"), summary);
-  }
+  assert.deepEqual(
+    [...document.querySelectorAll(".fm-metrics strong")].map(
+      (x) => x.textContent,
+    ),
+    ["0", "1", "2"],
+  );
+  assert(!document.body.textContent.includes("full view"));
   await click("My people");
   assert.equal(document.querySelector("h1").textContent, "MY PEOPLE");
   assert.equal(document.querySelectorAll(".fm-card-open").length, 2);
+  await act(async()=>document.querySelector('.fm-card-open').click());
+  assert.equal(document.querySelector('h1').textContent,'Fictional Ada');
+  assert(document.body.textContent.includes('Contact details'));
+  assert(document.querySelector('.fm-profile-actions'));
+  await click('History');
+  assert(document.body.textContent.includes('Loading their story'));
+  await click('‹ My people');
   await click("Members");
   assert.equal(document.querySelectorAll(".fm-card-open").length, 1);
   assert(document.querySelector(".fm-card-open").textContent.includes("Ben"));
@@ -131,7 +145,8 @@ try {
   assert.equal(document.querySelectorAll(".fm-card-open").length, 0);
   assert(document.body.textContent.includes("No people match"));
   await click("Register / import people");
-  assert.equal(full, 1);
+  assert(document.querySelector('[role="dialog"]'));
+  assert.equal(full, 0);
   await act(async () =>
     document.querySelector('[aria-label="Use light colours"]').click(),
   );
@@ -139,10 +154,10 @@ try {
   await click("Account");
   assert.equal(document.querySelector("h1").textContent, "MY ACCOUNT");
   assert(document.body.textContent.includes("Fixture Friend"));
-  await click("Done today");
-  assert.equal(document.querySelector("h1").textContent, "DONE TODAY");
+  await click("Follow Through");
+  assert.equal(document.querySelector("h1").textContent, "FOLLOW THROUGH");
   console.log(
-    "PASS rendered Friend navigation, live metrics, assigned-person isolation, search/filter, empty results, theme toggle and registration handoff",
+    "PASS rendered Friend navigation, live metrics, assigned-person isolation, search/filter, empty results, theme toggle and in-dashboard registration and no full-view escape",
   );
 } finally {
   await act(async () => root.unmount());
