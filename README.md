@@ -1,14 +1,40 @@
+# Current release: v4.5.2
+
+See VBC_v4_5_2_SETUP.md for the Home Cell Friend account correction.
+
+# Current release: v4.5.1
+
+Read **VBC_v4_5_1_SETUP.md** first for the new assignment migration and dual-role login details.
+
+# Current release: v4.5
+
+See **VBC_v4_5_SETUP.md** for migrations 027–028, Friend PIN configuration, restricted Coordinator access and shared guest/celebration records. Older release notes below describe their respective versions.
+
+# VBC Member Care v4.4
+
+Start with [VBC_v4_4_MEMBER_CARE.md](VBC_v4_4_MEMBER_CARE.md): run `supabase/026_celebration_greetings.sql`, then deploy. Friend mode (v4.3) is described in [VBC_v4_3_FRIEND_MODE.md](VBC_v4_3_FRIEND_MODE.md).
+
+---
+
 # VBC Member Care v4.1
 
 Start with [VBC_v4_1_SETUP.md](VBC_v4_1_SETUP.md). This release adds Follow Through registers, Friend registration and CSV import, persistent programmes, flyer uploads and recurring weekly services. Run migrations 022–024 before deploying. The illustrated staff manual is in `docs/`.
 
 The notes below describe earlier releases. The v4.1 guide takes precedence for the changed features.
 
-# Current release: v4.0.1 UI corrections
+# Current release: v4.4 Member Care refresh + celebration greetings
+
+Read [VBC_v4_4_MEMBER_CARE.md](VBC_v4_4_MEMBER_CARE.md). Run supabase/026_celebration_greetings.sql, then deploy.
+
+# Earlier release notes below
 
 Start with [VBC_v4.0.1_FIXES.md](VBC_v4.0.1_FIXES.md). Your v4.0 design is preserved. Apply **021 after 020** before deploying this source. Fixes stale command-search results, paused outreach shortcuts, dashboard queue filters and the pinned phone action bar. No new environment variables or production dependencies.
 
-# Current release: v4.0 UI refresh
+# Current release: v4.4 Member Care refresh + celebration greetings
+
+Read [VBC_v4_4_MEMBER_CARE.md](VBC_v4_4_MEMBER_CARE.md). Run supabase/026_celebration_greetings.sql, then deploy.
+
+# Earlier release notes below
 
 Read [VBC_v4.0_UI_REFRESH.md](VBC_v4.0_UI_REFRESH.md). No SQL. Deploy this source over v3.9.
 
@@ -16,7 +42,11 @@ Read [VBC_v4.0_UI_REFRESH.md](VBC_v4.0_UI_REFRESH.md). No SQL. Deploy this sourc
 
 Read [VBC_v3.9_WHATSAPP_SETUP.md](VBC_v3.9_WHATSAPP_SETUP.md). Apply **020 after 019**, then deploy this source. Open a person's Follow-ups profile → **WhatsApp invitations**. Staff-assisted sending works without Meta credentials. Official API sending requires production Meta configuration, explicit WhatsApp permission and an approved image template; it is disabled by default. Your supplied Sunday flyer appears first. Existing Member Care/Home Cell/WordPress flows are preserved.
 
-# Current release: v3.8 Member Care integration and reporting
+# Current release: v4.4 Member Care refresh + celebration greetings
+
+Read [VBC_v4_4_MEMBER_CARE.md](VBC_v4_4_MEMBER_CARE.md). Run supabase/026_celebration_greetings.sql, then deploy.
+
+# Earlier release notes below
 
 Start with [VBC_v3.8_SETUP.md](VBC_v3.8_SETUP.md). Apply **018 then 019** after your existing 017, then deploy this source. One previous VBC visit permits explicit joining; registration alone does not. Includes direct staff registration, visitor purpose/state, ministry history, existing Home Cell links and Excel/CSV reporting. Validation is in [VBC_v3.8_VALIDATION.md](VBC_v3.8_VALIDATION.md).
 

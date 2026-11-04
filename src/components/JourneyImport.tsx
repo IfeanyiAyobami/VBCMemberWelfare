@@ -29,7 +29,7 @@ export default function JourneyImport({
   function template() {
     const b = new Blob(
       [
-        "first,last,phone,email,contact_consent,email_opt_in,sms_opt_in,previous_visit_date,visit_evidence,note\r\n",
+        "first,last,phone,email,contact_consent,email_opt_in,sms_opt_in,previous_visit_date,visit_evidence,note,birthday_month,birthday_day,anniversary_month,anniversary_day\r\n",
       ],
       { type: "text/csv" },
     );

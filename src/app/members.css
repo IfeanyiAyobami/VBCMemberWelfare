@@ -117,7 +117,7 @@
 .care-history li > small,
 .care-evidence small {
   color: var(--muted);
-  font-size: 0.72rem;
+  font-size: 0.8125rem;
   line-height: 1.6;
 }
 .care-notes p,

@@ -39,6 +39,14 @@ export async function actor(allowPasswordChange = false) {
   ]);
   if (staffResult.error || assignmentResult.error || accessResult.error)
     throw new Error("ACCESS_CHECK_FAILED");
+  const scoped = await db
+    .from("care_journey_roles")
+    .select("capability")
+    .eq("user_id", user.id)
+    .eq("capability", "coordinator");
+  if (scoped.error) throw Error("ACCESS_CHECK_FAILED");
+  if (staffResult.data?.role !== "administrator" && scoped.data?.length)
+    throw Error("NO_ACCESS");
   const staff = staffResult.data,
     assignments = assignmentResult.data,
     access = accessResult.data;
@@ -72,7 +80,11 @@ export async function actor(allowPasswordChange = false) {
   const areas = roles
     .filter((x) => x.role === "coordinator" && x.area_id)
     .map((x) => x.area_id as string);
-  if (!allowPasswordChange && user.app_metadata?.hco_password_change_required === true) throw Error("PASSWORD_CHANGE_REQUIRED");
+  if (
+    !allowPasswordChange &&
+    user.app_metadata?.hco_password_change_required === true
+  )
+    throw Error("PASSWORD_CHANGE_REQUIRED");
   return { user, db, churchAdmin, areas, assignments: roles };
 }
 export async function canManage(targetArea: string | null, role: string) {

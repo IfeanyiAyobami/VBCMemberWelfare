@@ -43,7 +43,7 @@ export async function runGuestBrowser(origin) {
       .click();
     await page.waitForURL("**/guests");
     await page
-      .getByRole("heading", { name: "Guest submissions", exact: true })
+      .getByRole("heading", { name: "Guest cards", exact: true })
       .waitFor();
     await page
       .getByRole("status")

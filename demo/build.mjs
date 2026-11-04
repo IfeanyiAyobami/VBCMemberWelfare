@@ -40,6 +40,7 @@ for (const f of [
   "src/app/themes.css",
   "src/app/premium.css",
   "src/components/journey.css",
+  "src/components/friend.css",
 ]) css += "\n" + (await readFile(root + f, "utf8"));
 const urls = [...new Set([...css.matchAll(/url\(["']?(\/[^"')]+)["']?\)/g)].map((m) => m[1]))];
 for (const u of urls) {

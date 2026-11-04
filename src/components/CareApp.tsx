@@ -130,15 +130,9 @@ export default function CareApp({ staff }: { staff: StaffIdentity }) {
       memberDirectorySaved: true,
     });
     showIdentity(staff);
-    const bar = node.querySelector(".demo-bar");
-    if (bar) {
-      const badge = bar.querySelector("span");
-      if (badge) badge.textContent = "STAFF LOGIN ACTIVE";
-      const text = bar.querySelector("p");
-      if (text)
-        text.textContent =
-          "Members, programmes and celebrations use saved records. Campaign scheduling remains a preview.";
-    }
+    // Live staff workspace: preview screens are grouped under "Coming soon",
+    // so the permanent review banner is no longer needed.
+    node.querySelector(".demo-bar")?.remove();
 
     async function logout(event: MouseEvent) {
       const button = (event.target as Element).closest<HTMLButtonElement>(

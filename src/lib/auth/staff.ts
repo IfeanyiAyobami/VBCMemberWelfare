@@ -37,15 +37,20 @@ export async function getStaffSession(
     if (
       !data ||
       data.is_active !== true ||
-      !["administrator", "editor", "viewer", "followup_worker"].includes(data.role)
+      !["administrator", "editor", "viewer", "followup_worker"].includes(
+        data.role,
+      )
     )
       return { status: "forbidden" };
+    const scope = await supabase.rpc("care_journey_restricted");
+    if (scope.error) return { status: "unavailable" };
     return {
       status: "ready",
       staff: {
         user_id: user.id,
         display_name: data.display_name || "VBC staff",
-        role: data.role as StaffRole,
+        role:
+          scope.data === true ? "followup_worker" : (data.role as StaffRole),
         email: user.email ?? "",
       },
     };

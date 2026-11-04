@@ -2746,3 +2746,6 @@ html[data-theme="light"] .vj-import-table th {
     display: none;
   }
 }
+
+/* Friend provisioning is confined to the Follow Through manager panel. */
+.vj-friend-accounts{margin:16px 0;background:var(--vj-card,var(--vj-input))}.vj-friend-accounts>p{color:var(--vj-muted);margin:8px 0 18px}.vj-friend-accounts label{display:grid;gap:7px;margin:14px 0;max-width:540px}.vj-friend-accounts [role=alert]{border:1px solid #ed1c24;padding:14px;border-radius:10px;margin:14px 0}.vj-friend-accounts [role=alertdialog]{border:1px solid var(--vj-line);padding:20px;border-radius:12px;margin:14px 0;overflow-wrap:anywhere}

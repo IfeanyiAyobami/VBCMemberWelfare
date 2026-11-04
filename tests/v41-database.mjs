@@ -295,6 +295,109 @@ try {
   console.log(
     "PASS register field scope and whole-report friend totals independent of 30-row pagination",
   );
+
+  await db.exec("reset role");
+  await db.exec(await readFile("supabase/025_historical_guests.sql", "utf8"));
+  await db.exec(await readFile("supabase/025_historical_guests.sql", "utf8"));
+  await q("insert into care_private.historical_guests(batch,row_number,raw,full_name,phone,gender) values('spring-guests-2025-v1',2,$1,'Historical Fixture','+2348015550777','Female'),('spring-guests-2025-v1',3,'{}','Unknown Contact',null,'Male'),('spring-guests-2025-v1',4,'{}','Historical Fixture','+2348015550777','Female')", [JSON.stringify({date:"12th January",joined:"Yes",assigned:"Unknown friend",remarks:"Original historical note"})]);
+  await as(2);
+  await denied(()=>q("select public.care_historical_guests()"),"42501");
+  await denied(()=>q("select * from care_private.historical_guests"),"42501");
+  await as(1);
+  const historical=(await q("select public.care_historical_guests(2) r"))[0].r;
+  assert.equal(historical.saved,true);
+  assert.equal((await q("select public.care_historical_guests(2) r"))[0].r.memberId,historical.memberId);
+  assert.equal((await q("select public.care_historical_guests(4) r"))[0].r.saved,false);
+  assert.equal((await q("select public.care_historical_guests(3) r"))[0].r.saved,true);
+  await db.exec("reset role");
+  const hj=(await q("select j.*,m.phone,m.gender,m.status from care_journeys j join care_members m on m.id=j.member_id where member_id=$1",[historical.memberId]))[0];
+  assert.equal(hj.followup_state,"paused");assert.equal(hj.official_joined_on,null);assert.equal(hj.assigned_to,null);assert.equal(hj.status,"visitor");assert.equal(hj.gender,"Female");
+  const ev=(await q("select detail from care_journey_events where member_id=$1 and action='historical_guest_import'",[historical.memberId]))[0].detail;
+  assert.equal(ev.source.joined,"Yes");assert.equal(ev.source.remarks,"Original historical note");
+  assert.equal((await q("select count(*)::int n from care_journey_attendance where member_id=$1",[historical.memberId]))[0].n,0);
+  console.log("PASS historical scope, duplicate conflicts, replay, missing contact, original evidence, paused care and no invented membership/attendance");
+  if(process.env.PRIVATE_GUEST_SEED){
+    await db.exec("delete from care_private.historical_guests");
+    await db.exec(await readFile(process.env.PRIVATE_GUEST_SEED,"utf8"));
+    await db.exec(await readFile(process.env.PRIVATE_GUEST_SEED,"utf8"));
+    await as(1);
+    const sourceRows=(await q("select public.care_historical_guests() r"))[0].r.rows;
+    assert.equal(sourceRows.length,135);
+    let imported=0,conflicts=0;
+    for(const sourceRow of sourceRows){const r=(await q("select public.care_historical_guests($1) r",[sourceRow.row]))[0].r;r.saved?imported++:conflicts++;}
+    console.log("PRIVATE WORKBOOK DRY RUN",{rows:sourceRows.length,imported,conflicts});
+  }
+
+  await db.exec("reset role");
+  await db.exec(await readFile("supabase/027_friend_pin_accounts.sql","utf8"));
+  await db.exec(await readFile("supabase/027_friend_pin_accounts.sql","utf8"));
+  await q("insert into auth.users(id) values($1)",[id(777)]);
+  await q("select public.care_friend_pin_save($1,$2,'Fictional PIN Friend','pin@example.test','+2348015550771','test-hash')",[id(1),id(777)]);
+  await as(2);
+  await denied(()=>q("select public.care_friend_pin_attempt('pin@example.test')"),"42501");
+  await denied(()=>q("select * from care_friend_pin_accounts"),"42501");
+  await db.exec("reset role");
+  await denied(()=>q("select public.care_friend_pin_save($1,$2,'No','admin@example.test',null,'hash')",[id(1),id(1)]),"42501");
+  await denied(()=>q("select public.care_friend_pin_save($1,$2,'No','other@example.test',null,'hash')",[id(2),id(777)]),"42501");
+  let pinAttempt;
+  for(let i=0;i<5;i++){pinAttempt=(await q("select public.care_friend_pin_attempt($1) r",[i%2?'pin@example.test':'+2348015550771']))[0].r;assert.equal(pinAttempt.user_id,id(777));}
+  assert.deepEqual((await q("select public.care_friend_pin_attempt('pin@example.test') r"))[0].r,{});
+  const firstVersion=pinAttempt.version;
+  await q("select public.care_friend_pin_save($1,$2,'Fictional PIN Friend','pin@example.test','+2348015550771','reset-hash')",[id(1),id(777)]);
+  assert.equal((await q("select public.care_friend_pin_complete($1,$2) r",[id(777),firstVersion]))[0].r,false);
+  pinAttempt=(await q("select public.care_friend_pin_attempt('pin@example.test') r"))[0].r;
+  assert.equal(pinAttempt.pin_hash,'reset-hash');
+  assert.equal((await q("select public.care_friend_pin_complete($1,$2) r",[id(777),pinAttempt.version]))[0].r,true);
+  await q("update care_friend_pin_accounts set attempts=0,failures=20 where user_id=$1",[id(777)]);
+  assert.deepEqual((await q("select public.care_friend_pin_attempt('pin@example.test') r"))[0].r,{});
+  await q("update care_friend_pin_accounts set attempts=0,failures=0 where user_id=$1",[id(777)]);
+  await q("insert into care_journey_roles(user_id,capability,granted_by) values($1,'coordinator',$2)",[id(777),id(1)]);
+  assert.deepEqual((await q("select public.care_friend_pin_attempt('pin@example.test') r"))[0].r,{});
+  console.log('PASS Friend PIN provisioning, ACLs, elevated-account rejection, canonical email/phone limits, reset/version checks, total lock and promoted-account denial');
+
+  await db.exec("reset role");
+  await db.exec(await readFile("supabase/028_follow_through_scope_and_dates.sql","utf8"));
+  await db.exec(await readFile("supabase/028_follow_through_scope_and_dates.sql","utf8"));
+  await as(777);
+  assert.equal((await q("select public.care_journey_restricted() r"))[0].r,true);
+  assert.equal((await q("select public.care_friend_account_manager() r"))[0].r,true);
+  assert.equal((await q("select care_private.has_role(array['administrator','editor','viewer','followup_worker']) r"))[0].r,false);
+  assert.equal((await q("select count(*)::int n from care_members"))[0].n,0);
+  assert.equal((await q("select user_id from care_staff where user_id=$1",[id(777)]))[0].user_id,id(777));
+  const birthdayRequest=id(8800),birthdayData={birthdayMonth:'11',birthdayDay:'4',anniversaryMonth:'6',anniversaryDay:'12'};
+  const savedDates=(await q("select public.care_journey_celebration_dates($1,$2,$3) r",[created.memberId,JSON.stringify(birthdayData),birthdayRequest]))[0].r;
+  assert.equal(savedDates.birthdayMonth,11);
+  await q("select public.care_journey_celebration_dates($1,$2,$3)",[created.memberId,JSON.stringify(birthdayData),birthdayRequest]);
+  await denied(()=>q("select public.care_journey_celebration_dates($1,$2,$3)",[created.memberId,JSON.stringify({...birthdayData,birthdayMonth:'2',birthdayDay:'30'}),id(8801)]),'22023');
+  await as(3);
+  await denied(()=>q("select public.care_journey_celebration_dates($1)",[created.memberId]),'42501');
+  await as(2);
+  assert.equal((await q("select public.care_journey_celebration_dates($1) r",[created.memberId]))[0].r.birthdayDay,4);
+  await as(1);
+  assert.equal((await q("select public.care_journey_restricted() r"))[0].r,false);
+  assert.equal((await q("select birthday_month,status from care_members where id=$1",[created.memberId]))[0].birthday_month,11);
+  await db.exec('reset role');await q('insert into auth.users(id) values($1)',[id(778)]);
+  await q("select public.care_friend_pin_save($1,$2,'Coordinator created Friend','cofriend@example.test',null,'hash')",[id(777),id(778)]);
+  await as(2);
+  const newDirect=(await q('select public.care_journey_direct($1,$2) r',[JSON.stringify({first:'Celebration',last:'Guest',phone:'08015550192',note:'Fictional source',birthdayMonth:'2',birthdayDay:'29'}),id(8802)]))[0].r;
+  await as(1);
+  const central=(await q('select status,birthday_month,birthday_day from care_members where id=$1',[newDirect.memberId]))[0];assert.equal(central.status,'visitor');assert.equal(central.birthday_day,29);
+  await db.exec('reset role');await q("insert into care_journey_roles(user_id,capability,granted_by) values($1,'coordinator',$2)",[id(4),id(1)]);await as(4);
+  assert.equal((await q('select public.care_journey_restricted() r'))[0].r,true);assert.equal((await q('select count(*)::int n from care_members'))[0].n,0);
+  assert.equal((await q('select public.care_programme_can_edit() r'))[0].r,false);
+  console.log('PASS restricted Coordinator database scope and self identity; central celebration dates, assigned Friend scope, date validation, replay, Coordinator Friend creation, and shared Visitor registration');
+
+  await db.exec('reset role');await db.exec(await readFile('supabase/029_friend_assignment_without_reason.sql','utf8'));await db.exec(await readFile('supabase/029_friend_assignment_without_reason.sql','utf8'));
+  await as(1);
+  const assignData={memberId:newDirect.memberId,version:(await read(newDirect.memberId)).detail.person.version,worker:id(2)};
+  await write('assign',assignData);
+  const reassignData={memberId:newDirect.memberId,version:(await read(newDirect.memberId)).detail.person.version,worker:id(3)};
+  await write('assign',reassignData);
+  assert.equal((await read(newDirect.memberId)).detail.person.assigned_to,id(3));
+  await db.exec('reset role');const assignmentAudit=(await q("select detail from care_journey_events where member_id=$1 and action='assign' order by created_at desc,id desc",[newDirect.memberId])).map(x=>x.detail);
+  assert(assignmentAudit.some(x=>x.previous_friend===id(2)&&x.worker===id(3)));
+  await as(1);const newestVersion=(await read(newDirect.memberId)).detail.person.version;await as(2);await denied(()=>write('assign',{...reassignData,version:newestVersion}),'42501');
+  console.log('PASS assignment and reassignment without a reason, retained previous/new Friend audit and unauthorized Friend denial');
 } finally {
   await db.close();
 }

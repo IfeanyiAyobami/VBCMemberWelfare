@@ -19,6 +19,23 @@ export function intakeError(data: Intake): string {
       !data.visitEvidence)
   )
     return "Use a full previous visit date (YYYY-MM-DD) and its evidence.";
+  for (const [month, day] of [
+    [data.birthdayMonth, data.birthdayDay],
+    [data.anniversaryMonth, data.anniversaryDay],
+  ]) {
+    if (!month && !day) continue;
+    const m = Number(month),
+      d = Number(day);
+    if (
+      !Number.isInteger(m) ||
+      !Number.isInteger(d) ||
+      m < 1 ||
+      m > 12 ||
+      d < 1 ||
+      d > new Date(Date.UTC(2000, m, 0)).getUTCDate()
+    )
+      return "Use valid celebration month/day pairs or leave both blank.";
+  }
   return "";
 }
 /** RFC-style quoted fields, escaped quotes and CRLF. No delimiter guessing. */
@@ -86,6 +103,10 @@ export function readIntakeCSV(
     previous_visit_date: "previousVisitDate",
     visit_evidence: "visitEvidence",
     note: "note",
+    birthday_month: "birthdayMonth",
+    birthday_day: "birthdayDay",
+    anniversary_month: "anniversaryMonth",
+    anniversary_day: "anniversaryDay",
   };
   if (
     new Set(headers).size !== headers.length ||

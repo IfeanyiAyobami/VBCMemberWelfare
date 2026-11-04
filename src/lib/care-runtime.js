@@ -31,6 +31,8 @@ export function mountCareUI(root, options = {}) {
         })[c],
     );
   const icons = {
+    phone:
+      '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
     overview:
       '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     members:
@@ -217,9 +219,22 @@ export function mountCareUI(root, options = {}) {
               ? "Every " + weekDays[e.weekday]
               : dateLabel(e.date);
           const date = new Date(e.date + "T12:00:00Z");
-          const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(date).toUpperCase();
-          const weekday = new Intl.DateTimeFormat("en-GB", { weekday: "long", timeZone: "UTC" }).format(date);
-          const image = e.image ? encodeURI(e.image).replaceAll("'", "%27").replaceAll("(", "%28").replaceAll(")", "%29") : "";
+          const month = new Intl.DateTimeFormat("en-GB", {
+            month: "short",
+            timeZone: "UTC",
+          })
+            .format(date)
+            .toUpperCase();
+          const weekday = new Intl.DateTimeFormat("en-GB", {
+            weekday: "long",
+            timeZone: "UTC",
+          }).format(date);
+          const image = e.image
+            ? encodeURI(e.image)
+                .replaceAll("'", "%27")
+                .replaceAll("(", "%28")
+                .replaceAll(")", "%29")
+            : "";
           return `<article class="card event-card event-card-visual" style="--programme-image:url('${esc(image)}')"><div class="programme-cover"><div class="programme-cover-top"><span class="programme-status ${past ? "past" : ""}"><span class="programme-dot"></span>${e.recurrence === "weekly" ? "Recurring weekly" : past ? "Past programme" : "Upcoming"}</span><span class="programme-date"><strong>${esc(e.date.slice(8))}</strong><small>${month} ${esc(e.date.slice(0, 4))}<br>${weekday}</small></span></div><h2 class="programme-cover-title">${esc(e.title)}</h2></div><div class="card-pad programme-details"><p>${esc(e.description)}</p><div class="event-meta">${icon("pin")}${esc(e.venue)}</div><div class="event-meta">${icon("clock")}${esc(e.time)} · ${esc(schedule)}</div>${e.recurrence === "weekly" ? `<small class="hint">Next: ${dateLabel(e.date)}</small>` : ""}<div class="actions mt">${btn("Create invite", "event-campaign", "small primary", 'data-id="' + e.id + '"')}${liveProgrammes.canEdit ? btn("Edit", "edit-event", "small", 'data-id="' + e.id + '"') : ""}</div>${e.image ? `<a class="programme-flyer-link" href="${esc(e.image)}" target="_blank" rel="noopener noreferrer">View full flyer</a>` : ""}</div></article>`;
         })
         .join(
@@ -373,8 +388,20 @@ export function mountCareUI(root, options = {}) {
           celebrationOpt: preferences?.celebrations_opt_in === true,
           emailOpt: preferences?.email_opt_in === true,
           smsOpt: preferences?.sms_opt_in === true,
+          programmeOpt: preferences?.programmes_opt_in === true,
+          newsletterOpt: preferences?.newsletters_opt_in === true,
+          email: typeof m.email === "string" ? m.email : "",
+          contactConsent: preferences?.contact_consent === true,
+          phone: typeof m.phone === "string" ? m.phone : "",
+          whatsapp: typeof m.whatsapp === "string" ? m.whatsapp : "",
+          addedAt: typeof m.created_at === "string" ? m.created_at : "",
         };
       });
+      liveCelebrations.greetings = Array.isArray(result.greetings)
+        ? result.greetings
+        : [];
+      liveCelebrations.canGreet = result.canGreet === true;
+      liveCelebrations.greetingsAvailable = result.greetingsAvailable !== false;
       liveCelebrations.status = "ready";
       liveCelebrations.message = "";
     } catch (error) {
@@ -387,22 +414,74 @@ export function mountCareUI(root, options = {}) {
     }
     if (
       !lifecycle.signal.aborted &&
-      ["overview", "celebrations"].includes(currentRoute().split("/")[0])
+      [
+        "overview",
+        "celebrations",
+        "campaigns",
+        "compose",
+        "newsletters",
+      ].includes(currentRoute().split("/")[0])
     )
       render();
   }
+  // v4.4 "This week": guest cards waiting and journey counts (saved mode only).
+  const liveWeek = { pendingGuests: null, journey: null };
+  async function refreshWeek() {
+    if (!options.memberDirectorySaved) return;
+    const get = async (url) => {
+      try {
+        const r = await fetch(url, {
+          credentials: "same-origin",
+          cache: "no-store",
+          signal: lifecycle.signal,
+        });
+        return r.ok ? await r.json() : null;
+      } catch {
+        return null;
+      }
+    };
+    const [guests, journey] = await Promise.all([
+      get("/api/guests?status=pending&page=1"),
+      get("/api/journey?search=&page=0&view=overview&stage=all"),
+    ]);
+    if (lifecycle.signal.aborted) return;
+    liveWeek.pendingGuests =
+      guests && Number.isFinite(guests.total) ? guests.total : null;
+    liveWeek.journey = journey && journey.stats ? journey.stats : null;
+    if (currentRoute().split("/")[0] === "overview") render();
+  }
+  const greetingKey = (id, occasion, year) => `${id}|${occasion}|${year}`;
+  const greetingFor = (id, occasion, year) =>
+    (liveCelebrations.greetings || []).find(
+      (g) =>
+        greetingKey(g.member_id, g.occasion, g.occasion_year) ===
+        greetingKey(id, occasion, year),
+    );
+  const waNumber = (m) => {
+    let digits = String(m.whatsapp || m.phone || "").replace(/\D/g, "");
+    if (digits.startsWith("0") && digits.length === 11)
+      digits = "234" + digits.slice(1);
+    return digits;
+  };
+  const greetingText = (m, occasion) =>
+    occasion === "anniversary"
+      ? `Happy wedding anniversary, ${m.first}! 💍 Everyone at Vine Branch Church is celebrating with you today. May God keep blessing your home with love, joy and peace.`
+      : `Happy birthday, ${m.first}! 🎉 Everyone at Vine Branch Church is celebrating you today. May this new year bring you joy, peace and God's rich blessing.`;
   const todayParts = lagosToday().iso.split("-").map(Number);
   state.calYear = todayParts[0];
   state.calMonth = todayParts[1] - 1;
   state.calDay = todayParts[2];
   const main = $("#main"),
     modal = $("#modal");
-  const nav = [
+  const liveNav = [
     ["overview", "Overview"],
     ["members", "Members"],
-    ...(options.memberDirectorySaved ? [["guests", "Guest submissions"]] : []),
+    ...(options.memberDirectorySaved ? [["guests", "Guest cards"]] : []),
     ["celebrations", "Celebrations"],
     ["programmes", "Programmes"],
+  ];
+  // Screens that still show sample data stay reachable but grouped out of the way.
+  const soonNav = [
     ["campaigns", "Campaigns"],
     ["newsletters", "Newsletters"],
     ["templates", "Templates"],
@@ -410,6 +489,7 @@ export function mountCareUI(root, options = {}) {
     ["delivery", "Delivery log"],
     ["settings", "Settings"],
   ];
+  const nav = [...liveNav, ...soonNav];
   const field = (id, label, value = "", type = "text", attrs = "") =>
     `<div class="field"><label for="${id}">${label}</label><input id="${id}" name="${id}" type="${type}" value="${esc(value)}" ${attrs}></div>`;
   const select = (id, label, options, value = "", attrs = "") =>
@@ -472,8 +552,17 @@ export function mountCareUI(root, options = {}) {
       return;
     if (modal.open) modal.close();
     render();
-    if (["overview", "celebrations"].includes(currentRoute().split("/")[0]))
+    if (
+      [
+        "overview",
+        "celebrations",
+        "campaigns",
+        "compose",
+        "newsletters",
+      ].includes(currentRoute().split("/")[0])
+    )
       void refreshCelebrations();
+    if (currentRoute().split("/")[0] === "overview") void refreshWeek();
     if (["overview", "programmes"].includes(currentRoute().split("/")[0]))
       void refreshProgrammes();
     main.focus({ preventScroll: true });
@@ -495,12 +584,11 @@ export function mountCareUI(root, options = {}) {
   function render() {
     const route = currentRoute() || "overview";
     const base = route.split("/")[0];
-    $("#navigation").innerHTML = nav
-      .map(
-        ([key, name]) =>
-          `<a href="/${key}" ${key === "followups" ? "" : 'data-care-route=""'} class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}${key === "delivery" && state.logs.some((l) => l.status === "Failed") ? '<span class="nav-count">1</span>' : ""}</a>`,
-      )
-      .join("");
+    const navLink = ([key, name]) =>
+      `<a href="/${key}" data-care-route="" class="nav-item ${key === base ? "active" : ""}" ${key === base ? 'aria-current="page"' : ""}>${icon(key)}${name}</a>`;
+    $("#navigation").innerHTML =
+      liveNav.map(navLink).join("") +
+      `<details class="nav-soon" ${soonNav.some(([key]) => key === base) ? "open" : ""}><summary>Coming soon <span class="nav-soon-count">${soonNav.length}</span></summary><p>Sample screens. They appear in the main menu once they use real records.</p>${soonNav.map(navLink).join("")}</details>`;
     $("#breadcrumb").textContent =
       "Church office / " +
       (nav.find((n) => n[0] === base)?.[1] ||
@@ -601,7 +689,7 @@ export function mountCareUI(root, options = {}) {
         <section class="vbc-panel"><div class="vbc-panel-head"><h2>Today's celebrations</h2><a href="/celebrations" data-care-route="" class="vbc-panel-link">View all →</a></div>${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading…" : "Unavailable")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0, 4).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No celebrations today.</div>'}</section>
       </aside></div>
       <section class="vbc-panel vbc-programmes-shortcut"><div class="vbc-panel-head"><div><h2>Upcoming programmes</h2><p>Next scheduled programmes from the Programmes tab.</p></div><a href="/programmes" data-care-route="" class="vbc-panel-link">View programmes →</a></div>${upcomingProgrammeCards()}</section>
-      <p class="vbc-overview-footnote">Member statistics and celebrations use saved records. Messaging remains paused.</p>
+      <p class="vbc-overview-footnote">Member statistics, celebrations and programmes use saved records.</p>
     </div>`;
   }
   function upcomingProgrammeCards() {
@@ -879,7 +967,9 @@ export function mountCareUI(root, options = {}) {
     };
   }
   function audience(d) {
-    return state.members.filter(
+    return (
+      options.memberDirectorySaved ? liveMembers() : state.members
+    ).filter(
       (m) =>
         d.audience === "all" ||
         (d.audience === "new" && m.status === "New member") ||
@@ -892,14 +982,26 @@ export function mountCareUI(root, options = {}) {
     const email = Array.from(
       new Map(
         candidates
-          .filter((m) => m.programmeOpt && m.emailOpt && m.email)
+          .filter(
+            (m) =>
+              (!options.memberDirectorySaved || m.contactConsent) &&
+              m.programmeOpt &&
+              m.emailOpt &&
+              m.email,
+          )
           .map((m) => [m.email.toLowerCase(), m]),
       ).values(),
     );
     const sms = Array.from(
       new Map(
         candidates
-          .filter((m) => m.programmeOpt && m.smsOpt && m.phone)
+          .filter(
+            (m) =>
+              (!options.memberDirectorySaved || m.contactConsent) &&
+              m.programmeOpt &&
+              m.smsOpt &&
+              m.phone,
+          )
           .map((m) => [normalizePhone(m.phone), m]),
       ).values(),
     );
@@ -1818,8 +1920,14 @@ export function mountCareUI(root, options = {}) {
   function newsletterRecipients() {
     return Array.from(
       new Map(
-        state.members
-          .filter((m) => m.newsletterOpt && m.emailOpt && m.email)
+        (options.memberDirectorySaved ? liveMembers() : state.members)
+          .filter(
+            (m) =>
+              (!options.memberDirectorySaved || m.contactConsent) &&
+              m.newsletterOpt &&
+              m.emailOpt &&
+              m.email,
+          )
           .map((m) => [m.email.toLowerCase(), m]),
       ).values(),
     );
@@ -2030,7 +2138,97 @@ export function mountCareUI(root, options = {}) {
       id = b.dataset.id,
       v = b.dataset.value;
     if (b.disabled) return;
+    const greetTarget = () => {
+      const m = liveMembers().find((x) => x.id === id);
+      return m
+        ? {
+            m,
+            occasion:
+              b.dataset.occasion === "anniversary" ? "anniversary" : "birthday",
+            year: Number(b.dataset.year),
+          }
+        : null;
+    };
+    const askRecorded = (t, channel) =>
+      showModal(
+        channel === "phone"
+          ? "Did you greet them on the call?"
+          : "Did you send the greeting?",
+        `<p>${channel === "phone" ? "If you wished" : "If you sent the WhatsApp message to"} <strong>${esc(t.m.first + " " + t.m.last)}</strong>${channel === "phone" ? " a happy " + (t.occasion === "anniversary" ? "anniversary" : "birthday") : ""}, record it so nobody else greets them twice.</p><p class="hint mt">Only the greeting is recorded, under your name. The message itself is not stored.</p>`,
+        `<button class="btn" data-action="close">Not sent</button><button class="btn primary" data-action="greet-confirm" data-id="${esc(t.m.id)}" data-occasion="${t.occasion}" data-year="${t.year}" data-value="${channel}">Yes, record it</button>`,
+      );
     const acts = {
+      greet: () => {
+        const t = greetTarget();
+        if (!t) return;
+        const url = `https://wa.me/${waNumber(t.m)}?text=${encodeURIComponent(greetingText(t.m, t.occasion))}`;
+        window.open(url, "_blank", "noopener");
+        askRecorded(t, "whatsapp");
+      },
+      "call-greet": () => {
+        const t = greetTarget();
+        if (!t) return;
+        const number = String(t.m.phone || t.m.whatsapp || "").replace(
+          /[^+\d]/g,
+          "",
+        );
+        window.location.href = "tel:" + number;
+        if (
+          liveCelebrations.canGreet &&
+          liveCelebrations.greetingsAvailable &&
+          !greetingFor(t.m.id, t.occasion, t.year)
+        )
+          setTimeout(() => askRecorded(t, "phone"), 600);
+      },
+      "greet-confirm": async () => {
+        const t = greetTarget();
+        if (!t || b.dataset.busy) return;
+        b.dataset.busy = "1";
+        b.disabled = true;
+        b.textContent = "Recording…";
+        try {
+          const r = await fetch("/api/celebrations/greet", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              memberId: t.m.id,
+              occasion: t.occasion,
+              year: t.year,
+              channel: v === "phone" ? "phone" : "whatsapp",
+            }),
+          });
+          const x = await r.json().catch(() => ({}));
+          if (!r.ok)
+            throw new Error(x.message || "Could not record the greeting.");
+          if (x.greeting) {
+            liveCelebrations.greetings = [
+              ...(liveCelebrations.greetings || []).filter(
+                (g) =>
+                  greetingKey(g.member_id, g.occasion, g.occasion_year) !==
+                  greetingKey(t.m.id, t.occasion, t.year),
+              ),
+              x.greeting,
+            ];
+          }
+          modal.close();
+          toast(
+            x.already && x.greeting
+              ? `Already greeted by ${x.greeting.greeted_by_name}.`
+              : "Recorded. Thank you for greeting them.",
+          );
+          render();
+        } catch (error) {
+          b.disabled = false;
+          delete b.dataset.busy;
+          b.textContent = "Yes, record it";
+          toast(
+            error instanceof Error
+              ? error.message
+              : "Could not record the greeting.",
+          );
+        }
+      },
       close: () => {
         if (eventSaving) return;
         modal.close();
@@ -2905,10 +3103,20 @@ export function mountCareUI(root, options = {}) {
   if (options.memberDirectorySaved) {
     void refreshCelebrations();
     void refreshProgrammes();
+    void refreshWeek();
   }
   listen(window, "focus", () => {
-    if (["overview", "celebrations"].includes(currentRoute().split("/")[0]))
+    if (
+      [
+        "overview",
+        "celebrations",
+        "campaigns",
+        "compose",
+        "newsletters",
+      ].includes(currentRoute().split("/")[0])
+    )
       void refreshCelebrations();
+    if (currentRoute().split("/")[0] === "overview") void refreshWeek();
   });
   let previewUrl = "";
   listen(modal, "cancel", (e) => {

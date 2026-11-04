@@ -42,7 +42,7 @@
   gap: 8px;
 }
 .guest-stepper li {
-  font-size: 0.7rem;
+  font-size: 0.8125rem;
   color: var(--muted);
   border-bottom: 3px solid var(--line);
   padding-bottom: 14px;
@@ -100,7 +100,7 @@
   overflow-wrap: anywhere;
 }
 .guest-match small {
-  font-size: 0.73rem;
+  font-size: 0.8125rem;
   line-height: 1.7;
   color: var(--muted);
   margin: 5px 0;
@@ -124,7 +124,7 @@
     grid-template-columns: minmax(0, 1fr);
   }
   .guest-stepper li {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
   }
   .guest-choices li {
     align-items: flex-start;

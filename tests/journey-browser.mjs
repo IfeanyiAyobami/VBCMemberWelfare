@@ -76,6 +76,11 @@ const contacts = [],
   requests = new Map();
 let failContact = true;
 let loseAck = true;
+let friendOnly = false;
+export function setJourneyFriendOnly(value) {
+  friendOnly = value;
+}
+export const journeyFixture = { records, contacts, events };
 export async function journeyMock(req, res, url, auth, json) {
   if (!url.pathname.startsWith("/rest/v1/rpc/care_journey_")) return false;
   if (
@@ -317,9 +322,9 @@ export async function journeyMock(req, res, url, auth, json) {
       overdue: 1,
     },
     capabilities: {
-      coordinator: admin,
-      foundation: admin,
-      administrator: admin,
+      coordinator: admin && !friendOnly,
+      foundation: admin && !friendOnly,
+      administrator: admin && !friendOnly,
       friend: true,
     },
     policy: {
@@ -380,7 +385,7 @@ export async function runJourneyBrowser(page, origin) {
     await page.getByRole('button',{name:new RegExp('^'+label)}).click();
     assert.equal((await response).status(),200,'Metric opens a matching server filter');
     if(stage==='eligible')await page.getByLabel('Membership queue').selectOption('eligible');
-    if(stage==='unassigned')await page.locator('.vj-person-row').waitFor({state:'hidden'});
+    if(stage==='unassigned')await page.locator('.vj-person-row').first().waitFor({state:'hidden'});
     if(stage==='overdue')assert.equal(await page.getByLabel('Today queue').inputValue(),'overdue');
     await todayPage();
   }

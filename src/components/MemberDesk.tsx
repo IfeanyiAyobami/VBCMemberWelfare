@@ -25,9 +25,12 @@ import {
 const navigation = [
   ["overview", "Overview"],
   ["members", "Members"],
-  ["guests", "Guest submissions"],
+  ["guests", "Guest cards"],
   ["celebrations", "Celebrations"],
   ["programmes", "Programmes"],
+];
+// Sample-data screens stay reachable but are grouped out of the main menu.
+const comingSoon = [
   ["campaigns", "Campaigns"],
   ["newsletters", "Newsletters"],
   ["templates", "Templates"],
@@ -334,13 +337,6 @@ export default function MemberDesk({
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <div className="demo-bar">
-        <span>MEMBER RECORDS ACTIVE</span>
-        <p>
-          Records are saved · Messaging is paused · Other modules are previews
-        </p>
-        <a href="/guide">Review guide</a>
-      </div>
       <div className="app-shell">
         {menuOpen && (
           <button
@@ -386,6 +382,22 @@ export default function MemberDesk({
                 {label}
               </a>
             ))}
+            <details className="nav-soon">
+              <summary>
+                Coming soon{" "}
+                <span className="nav-soon-count">{comingSoon.length}</span>
+              </summary>
+              <p>
+                Sample screens. They appear in the main menu once they use real
+                records.
+              </p>
+              {comingSoon.map(([path, label]) => (
+                <a key={path} href={"/" + path} className="nav-item">
+                  <Icon name={path} />
+                  {label}
+                </a>
+              ))}
+            </details>
           </nav>
           <div className="side-bottom">
             <a href="/followups">Follow Through assignments →</a>
@@ -427,7 +439,7 @@ export default function MemberDesk({
               ☰
             </button>
             <span className="breadcrumb">
-              Church office / {guestMode ? "Guest submissions" : "Members"}
+              Church office / {guestMode ? "Guest cards" : "Members"}
               {memberId ? " / Profile" : guestId ? " / Review" : ""}
             </span>
             <div className="top-actions">
@@ -629,6 +641,40 @@ export default function MemberDesk({
                     </form>
                     {!loading && pageData && (
                       <section className="card">
+                        <ul className="member-cards" aria-label="Members">
+                          {pageData.members.map((record) => (
+                            <li key={record.id}>
+                              <a href={"/profile/" + record.id}>
+                                <span className="avatar">{initials(record)}</span>
+                                <span className="member-card-text">
+                                  <strong>
+                                    {record.first} {record.last}
+                                  </strong>
+                                  <small>
+                                    {[
+                                      record.birthday &&
+                                        "Birthday " + milestoneLabel(record.birthday),
+                                      record.anniversary &&
+                                        "Anniversary " +
+                                          milestoneLabel(record.anniversary),
+                                    ]
+                                      .filter(Boolean)
+                                      .join(" · ") ||
+                                      record.phone ||
+                                      record.email ||
+                                      "No dates recorded"}
+                                  </small>
+                                </span>
+                                <span className="member-card-status">
+                                  <Status value={record.status} />
+                                  {record.archivedAt && (
+                                    <span className="badge amber">Archived</span>
+                                  )}
+                                </span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
                         <div className="table-wrap">
                           <table>
                             <thead>

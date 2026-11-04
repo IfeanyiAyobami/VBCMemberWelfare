@@ -8,11 +8,13 @@ export default function StaffAccess({
   initialMessage = "",
   configurationMessage = "",
   help = false,
+  workspaceLabel = "",
 }: {
   next?: string;
   initialMessage?: string;
   configurationMessage?: string;
   help?: boolean;
+  workspaceLabel?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const errorBox = useRef<HTMLDivElement>(null);
@@ -122,12 +124,14 @@ export default function StaffAccess({
             <span className="staff-lock" aria-hidden="true">
               ✦
             </span>
-            <div className="eyebrow">CHURCH OFFICE</div>
+            <div className="eyebrow">{workspaceLabel || "CHURCH OFFICE"}</div>
             <h2>{help ? "Let’s get you back in." : "Welcome back."}</h2>
             <p className="muted mt">
               {help
                 ? "Your church administrator can help you regain access."
-                : "Sign in to care for our church family."}
+                : workspaceLabel
+                  ? "Sign in to your Follow Through workspace."
+                  : "Sign in to care for our church family."}
             </p>
             {configurationMessage && (
               <div className="notice red" role="alert">
@@ -215,6 +219,9 @@ export default function StaffAccess({
                 </a>
               </form>
             )}
+            <a className="text-link staff-help-link" href="/friend-login">
+              Follow Through Friend · four-digit PIN sign-in
+            </a>
             <div className="staff-access-footnote">
               <span aria-hidden="true">●</span> Access is reserved for approved
               church staff.

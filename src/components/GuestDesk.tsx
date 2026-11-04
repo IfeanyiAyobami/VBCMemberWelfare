@@ -204,19 +204,17 @@ export default function GuestDesk({
       )}
       {guestId ? (
         <a className="text-link" href="/guests">
-          ← All guest submissions
+          ← All guest cards
         </a>
       ) : (
         <>
           <div className="page-head">
             <div>
-              <div className="eyebrow">
-                A warm welcome, a lasting connection
-              </div>
-              <h1>Guest submissions</h1>
+              <div className="eyebrow">Step 1 of the guest journey</div>
+              <h1>Guest cards</h1>
               <p>
-                Every visit deserves care. Review each card before adding it to
-                the church family.
+                Check each new card, then hand the person to Follow-ups so a
+                Friend can welcome them.
               </p>
             </div>
             {canEdit ? (
@@ -227,6 +225,26 @@ export default function GuestDesk({
               <span className="badge blue">View access</span>
             )}
           </div>
+          <ol className="guest-journey" aria-label="The guest journey">
+            <li className="current" aria-current="step">
+              <span>Step 1 · You are here</span>
+              <strong>New guest cards</strong>
+              <small>Website forms and welcome desk</small>
+            </li>
+            <li>
+              <span>Step 2</span>
+              <strong>In follow-up</strong>
+              <a href="/followups">With a Follow-through Friend →</a>
+            </li>
+            <li>
+              <span>Step 3</span>
+              <strong>Ready to join</strong>
+              <a href="/followups">Membership Sunday →</a>
+            </li>
+          </ol>
+          <p className="guest-older">
+            <a href="/historical-guests">Older paper cards (historical import)</a>
+          </p>
           <form
             className="toolbar"
             onSubmit={(e) => {
@@ -254,7 +272,7 @@ export default function GuestDesk({
                 setPage(1);
               }}
             >
-              <option value="all">All submissions</option>
+              <option value="all">All guest cards</option>
               {Object.entries(GUEST_STATUSES).map(([key, label]) => (
                 <option key={key} value={key}>
                   {label}

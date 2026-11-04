@@ -1,0 +1,1 @@
+Corrects Overview light-mode selectors that were also matching dark mode. Navy panels in dark mode; white in light mode. No SQL changes. Replace src/app/overview-restored.css if v4.4.1 is already installed. Theme selector checks passed.

@@ -30,6 +30,10 @@ export function DirectRegistrationFields() {
       occupation: "",
       address: "",
       gender: "",
+      birthdayMonth: "",
+      birthdayDay: "",
+      anniversaryMonth: "",
+      anniversaryDay: "",
       contactConsent: true,
       emailOptIn: true,
       smsOptIn: true,
@@ -168,6 +172,26 @@ export function DirectRegistrationFields() {
               <option value="Female">Female</option>
             </select>
           </label>
+          {(
+            [
+              ["birthdayMonth", "Birthday month", 12],
+              ["birthdayDay", "Birthday day", 31],
+              ["anniversaryMonth", "Wedding anniversary month", 12],
+              ["anniversaryDay", "Wedding anniversary day", 31],
+            ] as const
+          ).map(([key, label, max]) => (
+            <label key={key}>
+              {label} · optional
+              <input
+                type="number"
+                name={key}
+                min={1}
+                max={max}
+                value={draft[key]}
+                onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+              />
+            </label>
+          ))}
           <label>
             Occupation · optional
             <input

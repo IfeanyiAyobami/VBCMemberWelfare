@@ -49,3 +49,6 @@ assert.match(
 console.log(
   "PASS CSV quoting, BOM, explicit opt-outs, defaults, duplicates, prohibited fields and malformed input",
 );
+
+assert.equal(readIntakeCSV("first,last,phone,birthday_month,birthday_day\nFictional,Guest,08015550100,2,29")[0].error, "");
+assert(readIntakeCSV("first,last,phone,birthday_month,birthday_day\nFictional,Guest,08015550100,2,30")[0].error);

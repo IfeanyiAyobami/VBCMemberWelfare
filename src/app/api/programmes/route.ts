@@ -11,6 +11,8 @@ export async function GET() {
       session = await getStaffSession(client);
     if (session.status !== "ready")
       return authJSON({ message: "Active staff access required." }, 403);
+    if (session.staff.role === "followup_worker")
+      return authJSON({ message: "Church-office access required." }, 403);
     const [read, edit] = await Promise.all([
       client
         .from("care_programmes")

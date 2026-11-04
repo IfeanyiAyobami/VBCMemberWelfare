@@ -1,0 +1,449 @@
+/* ===================================================================
+ * v4.4 — Member Care (Church Office, Members, Guest cards)
+ * One primary colour, shared tokens from tokens.css, nothing under 12px.
+ * =================================================================== */
+
+/* Church red for the active section, in both themes */
+.nav-item.active,
+[data-theme="dark"] .nav-item.active {
+  background: var(--vb-primary);
+  color: var(--vb-on-primary);
+  box-shadow: none;
+}
+.nav-item.active svg,
+[data-theme="dark"] .nav-item.active svg {
+  color: var(--vb-on-primary);
+}
+.nav-item {
+  font-size: var(--vb-text-md);
+  min-height: var(--vb-touch);
+}
+
+/* "Coming soon" group for sample-data screens */
+.nav-soon {
+  margin-top: 10px;
+  border-top: 1px solid #ffffff22;
+  padding-top: 8px;
+  color: #cbd0e7;
+}
+.nav-soon summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--vb-touch);
+  padding: 0 14px;
+  cursor: pointer;
+  font-size: var(--vb-text-md);
+  font-weight: 600;
+  list-style: none;
+}
+.nav-soon summary::-webkit-details-marker {
+  display: none;
+}
+.nav-soon summary::after {
+  content: "▸";
+  margin-left: auto;
+  transition: transform 0.15s;
+}
+.nav-soon[open] summary::after {
+  transform: rotate(90deg);
+}
+.nav-soon-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #ffffff22;
+  font-size: var(--vb-text-xs);
+}
+.nav-soon p {
+  margin: 0 14px 6px;
+  font-size: var(--vb-text-xs);
+  line-height: 1.5;
+  opacity: 0.85;
+}
+.nav-soon .nav-item {
+  opacity: 0.8;
+}
+
+/* Signed-in name: shorten with an ellipsis instead of breaking mid-word */
+.office-user .staff-name {
+  overflow: hidden;
+  overflow-wrap: normal;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.office-user .staff-name small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.office-user .staff-logout {
+  font-size: var(--vb-text-xs);
+  min-height: 32px;
+  white-space: nowrap;
+}
+
+/* ---------- This week ---------- */
+.vbc-week {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.vbc-week .page-head p {
+  font-size: var(--vb-text-lg);
+}
+.vbc-week-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+.vbc-week-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 20px;
+  border-radius: var(--vb-radius-lg);
+  border: 1px solid var(--vb-line);
+  background: var(--vb-surface);
+  color: var(--vb-fg);
+  text-decoration: none;
+}
+.vbc-week-card:hover {
+  border-color: var(--vb-line-strong);
+}
+.vbc-week-card span {
+  font-size: var(--vb-text-sm);
+  font-weight: 600;
+  color: var(--vb-muted);
+}
+.vbc-week-card strong {
+  font-size: 32px;
+  line-height: 1.1;
+}
+.vbc-week-card small {
+  font-size: var(--vb-text-sm);
+  color: var(--vb-muted);
+}
+.vbc-week-card.alert {
+  border-color: var(--vb-primary);
+  background: var(--vb-overdue-bg);
+}
+.vbc-week-card.alert span,
+.vbc-week-card.alert small {
+  color: var(--vb-overdue-fg);
+}
+.vbc-week-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.vbc-week-aside {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+.vbc-week-day {
+  padding: 8px 20px;
+  border-top: 1px solid var(--vb-line);
+  background: var(--vb-surface-2);
+  font-size: var(--vb-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--vb-muted);
+}
+.vbc-week-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 20px;
+  border-top: 1px solid var(--vb-line);
+}
+.vbc-week-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: var(--vb-fg);
+  text-decoration: none;
+}
+.vbc-week-person > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.35;
+}
+.vbc-week-person strong {
+  font-size: 15px;
+}
+.vbc-week-person small {
+  font-size: var(--vb-text-sm);
+  color: var(--vb-muted);
+}
+.vbc-week-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.vbc-week-actions .btn {
+  min-height: var(--vb-touch);
+  white-space: nowrap;
+}
+.vbc-week-actions .btn.primary {
+  background: var(--vb-primary);
+  border-color: var(--vb-primary);
+  color: var(--vb-on-primary);
+}
+.vbc-square {
+  width: var(--vb-touch);
+  padding: 0 !important;
+  display: inline-grid;
+  place-items: center;
+}
+.vbc-square svg {
+  width: 18px;
+  height: 18px;
+}
+.vbc-week .badge {
+  font-size: var(--vb-text-xs);
+}
+.vbc-journey-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 6px;
+}
+.vbc-journey-steps a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--vb-line);
+  color: var(--vb-fg);
+  text-decoration: none;
+}
+.vbc-journey-steps a:hover {
+  background: var(--vb-surface-2);
+}
+.vbc-journey-steps span {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.vbc-journey-steps small {
+  font-size: var(--vb-text-sm);
+  color: var(--vb-muted);
+}
+.vbc-journey-steps b {
+  font-size: 22px;
+}
+.vbc-journey-steps b.alert {
+  color: var(--vb-overdue-fg);
+}
+
+/* ---------- Members: cards on phones, table on wider screens ---------- */
+.member-cards {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.member-cards a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--vb-line);
+  color: inherit;
+  text-decoration: none;
+  min-height: 64px;
+}
+.member-cards li:first-child a {
+  border-top: 0;
+}
+.member-card-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.35;
+}
+.member-card-text strong {
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.member-card-text small {
+  font-size: var(--vb-text-sm);
+  color: var(--vb-muted);
+}
+.member-card-status {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+/* ---------- Guest cards: journey bar ---------- */
+.guest-journey {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid var(--vb-line);
+  border-radius: var(--vb-radius-lg);
+  overflow: hidden;
+}
+.guest-journey li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 18px;
+  background: var(--vb-surface);
+  border-left: 1px solid var(--vb-line);
+}
+.guest-journey li:first-child {
+  border-left: 0;
+}
+.guest-journey li > span {
+  font-size: var(--vb-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--vb-muted);
+}
+.guest-journey li strong {
+  font-size: 16px;
+}
+.guest-journey li small,
+.guest-journey li a {
+  font-size: var(--vb-text-sm);
+}
+.guest-journey li.current {
+  background: var(--vb-overdue-bg);
+}
+.guest-journey li.current > span,
+.guest-journey li.current small {
+  color: var(--vb-overdue-fg);
+}
+.guest-older {
+  margin: 0 0 14px;
+  font-size: var(--vb-text-sm);
+}
+
+/* ---------- Phones ---------- */
+@media (max-width: 900px) {
+  .vbc-week-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .vbc-week-cards {
+    grid-template-columns: 1fr 1fr;
+  }
+  .vbc-week-card {
+    padding: 12px 14px;
+  }
+  .vbc-week-card strong {
+    font-size: 24px;
+  }
+  .vbc-week-row {
+    grid-template-columns: 1fr;
+  }
+  .vbc-week-actions {
+    justify-content: flex-start;
+  }
+  .vbc-week-actions .btn.primary {
+    flex: 1;
+  }
+  #member-desk .table-wrap {
+    display: none;
+  }
+  .member-cards {
+    display: block;
+  }
+  #member-desk .toolbar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  #member-desk .toolbar .searchbox {
+    grid-column: 1 / -1;
+  }
+  #member-desk .toolbar select {
+    max-width: none !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .guest-journey {
+    grid-template-columns: 1fr;
+  }
+  .guest-journey li {
+    border-left: 0;
+    border-top: 1px solid var(--vb-line);
+  }
+  .guest-journey li:first-child {
+    border-top: 0;
+  }
+}
+
+/* Without the old review banner, the shell starts at the top of the screen */
+body:not(:has(.demo-bar)) .app-shell {
+  min-height: 100vh;
+}
+body:not(:has(.demo-bar)) .sidebar {
+  top: 0;
+}
+@media (max-width: 960px) {
+  body:not(:has(.demo-bar)) .member-nav-shade {
+    inset: 0;
+  }
+}
+
+/* This week panels follow the shared light/dark tokens */
+.vbc-week .vbc-panel,
+[data-theme="dark"] .vbc-week .vbc-panel {
+  background: var(--vb-surface);
+  color: var(--vb-fg);
+  border: 1px solid var(--vb-line);
+  border-radius: var(--vb-radius-lg);
+  box-shadow: none;
+}
+.vbc-week .vbc-panel-head {
+  border-bottom: 0;
+}
+.vbc-week .vbc-panel-head h2,
+.vbc-week .vbc-week-person strong {
+  color: var(--vb-fg);
+}
+.vbc-week .vbc-panel-link {
+  color: var(--vb-fg) !important; /* premium.css forces a pale colour with !important */
+  background: transparent;
+  border-color: var(--vb-line-strong);
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+}
+.vbc-week .vbc-panel-link:hover {
+  background: var(--vb-surface-2);
+}
+.vbc-week .vbc-panel-empty {
+  color: var(--vb-muted);
+}
+.vbc-week .vbc-upcoming-card {
+  background: var(--vb-surface-2);
+  color: var(--vb-fg);
+  border-color: var(--vb-line);
+}
+.vbc-week .vbc-upcoming-body small {
+  color: var(--vb-muted);
+}

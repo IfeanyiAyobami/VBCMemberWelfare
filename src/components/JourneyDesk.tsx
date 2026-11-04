@@ -21,7 +21,10 @@ import {
 import "./journey.css";
 import WhatsAppInvitations from "./WhatsAppInvitations";
 import CommandPalette from "./CommandPalette";
+import FriendDesk from "./FriendDesk";
 import JourneyImport from "./JourneyImport";
+import FriendAccounts from "./FriendAccounts";
+import JourneyCelebrationDates from "./JourneyCelebrationDates";
 import JourneyRegister from "./JourneyRegister";
 import {
   DirectRegistrationFields,
@@ -31,6 +34,7 @@ import {
 const labels: Record<string, string> = {
   overview: "Today",
   register: "People register",
+  friends: "Friends & accounts",
   visitors: "Visitors",
   followups: "Contact queue",
   attendance: "Church attendance",
@@ -282,7 +286,8 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     [menu, setMenu] = useState(false),
     [pending, setPending] = useState<string | null>(null),
     [palette, setPalette] = useState(false),
-    [importing, setImporting] = useState(false);
+    [importing, setImporting] = useState(false),
+    [friendMode, setFriendMode] = useState(true);
   const sequence = useRef(0),
     mounted = useRef(true),
     replay = useRef<{ body: string; id: string } | null>(null),
@@ -296,7 +301,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         page: String(page),
         view:
           (view === "overview" && stage === "overdue") ||
-          ["register", "ministry", "home_cells", "reports"].includes(view)
+          ["register", "friends", "ministry", "home_cells", "reports"].includes(
+            view,
+          )
             ? "all"
             : view,
         stage,
@@ -361,6 +368,22 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
     window.addEventListener("hashchange", change);
     return () => window.removeEventListener("hashchange", change);
   }, []);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("vbc-friend-mode") === "off")
+        setFriendMode(false);
+    } catch {
+      /* default to Friend mode */
+    }
+  }, []);
+  function chooseFriendMode(on: boolean) {
+    setFriendMode(on);
+    try {
+      localStorage.setItem("vbc-friend-mode", on ? "on" : "off");
+    } catch {
+      /* preference only */
+    }
+  }
   const caps = snapshot?.capabilities,
     detail = snapshot?.detail;
   const person =
@@ -754,7 +777,6 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                 .map((t) => [t.id, t.name]),
               person?.assigned_to || "",
             )}
-            {notes(true, "Assignment / reassignment reason")}
             <p className="vj-hint vj-wide">
               The new friend receives access immediately. Earlier activity stays
               in the person’s history.
@@ -1360,6 +1382,12 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             </button>
           ))}
         </div>
+        {tab === "contact" && own && person && (
+          <JourneyCelebrationDates
+            key={person.member_id}
+            member={person.member_id}
+          />
+        )}
         {tab === "whatsapp" && own && (
           <WhatsAppInvitations
             key={person.member_id}
@@ -1827,10 +1855,24 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
       </>
     );
   }
+  const friendOnly = !!caps?.friend && !caps.coordinator && !caps.foundation;
+  if (friendOnly && friendMode)
+    return (
+      <FriendDesk
+        staff={staff}
+        dark={dark}
+        onTheme={theme}
+        onFullView={() => chooseFriendMode(false)}
+        onSignOut={() => void signout()}
+      />
+    );
   return (
     <div className="vj-app">
       <aside className={"vj-sidebar " + (menu ? "is-open" : "")}>
-        <a className="vj-brand" href="/overview">
+        <a
+          className="vj-brand"
+          href={staff.role === "followup_worker" ? "/followups" : "/overview"}
+        >
           <img
             src="/assets/image-7d4e31b34082.png"
             alt="Vine Branch Church crest"
@@ -1843,12 +1885,13 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
         <span className="vj-nav-label">FOLLOW THROUGH</span>
         <nav aria-label="Visitor journey">
           {Object.entries(labels)
-            .filter(
-              ([key]) =>
-                !caps ||
-                caps.coordinator ||
-                caps.friend ||
-                ["overview", "cfc", "care"].includes(key),
+            .filter(([key]) =>
+              key === "friends"
+                ? !!caps?.coordinator
+                : !caps ||
+                  caps.coordinator ||
+                  caps.friend ||
+                  ["overview", "cfc", "care"].includes(key),
             )
             .map(([key, label]) => (
               <button
@@ -1857,7 +1900,7 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                 aria-current={view === key ? "page" : undefined}
                 onClick={() => navigate(key)}
               >
-                <Icon name={key} />
+                <Icon name={key === "friends" ? "visitors" : key} />
                 {label}
                 {key === "membership" && !!stats.eligible && (
                   <b>{stats.eligible}</b>
@@ -1897,7 +1940,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
           {staff.role !== "followup_worker" && (
             <a href="/overview">← Member Care dashboard</a>
           )}
-          <a href="/home-cell">Home Cell Office ↗</a>
+          {staff.role !== "followup_worker" && (
+            <a href="/home-cell">Home Cell Office ↗</a>
+          )}
         </div>
         <div className="vj-sidebar-bottom">
           <p>
@@ -1929,6 +1974,14 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
             {selected ? "Person’s journey" : labels[view]}
           </div>
           <div className="vj-top-controls">
+            {friendOnly && (
+              <button
+                className="vj-secondary"
+                onClick={() => chooseFriendMode(true)}
+              >
+                Friend mode
+              </button>
+            )}
             <button
               className="vj-find"
               onClick={() => setPalette(true)}
@@ -2005,15 +2058,17 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                       ? overdueCount
                         ? `${overdueCount} ${overdueCount === 1 ? "person is" : "people are"} overdue for contact. Start there.`
                         : "Nobody is overdue. Here’s who to contact next."
-                      : view === "membership"
-                        ? "Prepare, confirm and welcome people into membership."
-                        : view === "register"
-                          ? "Your working register: people, contact details, membership and assigned Friend."
-                          : view === "cfc"
-                            ? "Choose a person to enrol or record weekly class attendance."
-                            : view === "reports"
-                              ? "Review results for a period and see each Friend’s assigned people."
-                              : "Keep every person connected to the care they need."}
+                      : view === "friends"
+                        ? "Create Friend accounts and manage four-digit PINs."
+                        : view === "membership"
+                          ? "Prepare, confirm and welcome people into membership."
+                          : view === "register"
+                            ? "Your working register: people, contact details, membership and assigned Friend."
+                            : view === "cfc"
+                              ? "Choose a person to enrol or record weekly class attendance."
+                              : view === "reports"
+                                ? "Review results for a period and see each Friend’s assigned people."
+                                : "Keep every person connected to the care they need."}
                   </p>
                 </div>
                 {(caps?.coordinator || caps?.friend) &&
@@ -2021,6 +2076,11 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                     view,
                   ) && (
                     <div className="vj-actions">
+                      {caps?.coordinator && (
+                        <a className="vj-secondary" href="/historical-guests">
+                          Historical guests
+                        </a>
+                      )}
                       {button("direct", "Register a person", false)}
                       <button
                         className="vj-secondary"
@@ -2034,7 +2094,9 @@ export default function JourneyDesk({ staff }: { staff: StaffIdentity }) {
                   caps?.foundation &&
                   button("cohort", "Create cohort", false)}
               </div>
-              {view === "reports" ? (
+              {view === "friends" && caps?.coordinator ? (
+                <FriendAccounts />
+              ) : view === "reports" ? (
                 <JourneyReports snapshot={snapshot} onPerson={openPerson} />
               ) : (
                 <>

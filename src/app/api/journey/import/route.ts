@@ -41,6 +41,10 @@ export async function POST(request: NextRequest) {
         return authJSON({ message: "Invalid import row." }, 400);
       // Imports only create new records. Never accept a caller-supplied existing ID or assignment.
       const allowed = [
+        "birthdayMonth",
+        "birthdayDay",
+        "anniversaryMonth",
+        "anniversaryDay",
         "first",
         "last",
         "phone",
