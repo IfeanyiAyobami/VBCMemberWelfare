@@ -447,3 +447,36 @@ body:not(:has(.demo-bar)) .sidebar {
 .vbc-week .vbc-upcoming-body small {
   color: var(--vb-muted);
 }
+
+/* v4.7 — greeting controls on the restored Overview's celebration rows */
+.vbc-greet-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.vbc-greet-row > .vbc-priority-row {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.vbc-greet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 0 10px 52px;
+}
+.vbc-greet-actions .btn {
+  min-height: 40px;
+  white-space: nowrap;
+}
+.vbc-greet-call {
+  width: 40px;
+  padding: 0 !important;
+  display: inline-grid;
+  place-items: center;
+}
+.vbc-greet-call svg {
+  width: 17px;
+  height: 17px;
+}

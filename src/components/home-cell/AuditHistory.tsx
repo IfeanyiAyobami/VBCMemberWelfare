@@ -33,7 +33,8 @@ export default function AuditHistory({
   onError?: (message: string) => void;
 }) {
   const [items, setItems] = useState<Event[]>([]),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    [hidden, setHidden] = useState(false);
   useEffect(() => {
     if (error && onError) {
       onError(error);
@@ -52,6 +53,11 @@ export default function AuditHistory({
     )
       .then(async (r) => {
         const j = await r.json();
+        // Cell leaders cannot read the audit log: show nothing rather than an error.
+        if (r.status === 403) {
+          if (active) setHidden(true);
+          return;
+        }
         if (!r.ok) throw Error(j.message);
         if (active) setItems(j.items);
       })
@@ -62,6 +68,7 @@ export default function AuditHistory({
       active = false;
     };
   }, [meeting, scope, revision]);
+  if (hidden) return null;
   return (
     <section className="hc-panel">
       <header>

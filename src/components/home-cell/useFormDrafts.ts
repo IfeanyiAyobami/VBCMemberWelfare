@@ -28,6 +28,10 @@ export function useFormDrafts() {
           ["password", "hidden", "file"].includes(el.type))
       )
         continue;
+      if (el instanceof HTMLInputElement && el.type === "radio") {
+        if (el.checked) values[el.name] = el.value;
+        continue;
+      }
       values[el.name] =
         el instanceof HTMLInputElement && el.type === "checkbox"
           ? el.checked
@@ -54,6 +58,10 @@ export function useFormDrafts() {
         )
           continue;
         const value = values[el.name];
+        if (el instanceof HTMLInputElement && el.type === "radio") {
+          el.checked = el.value === value;
+          continue;
+        }
         if (el instanceof HTMLInputElement && el.type === "checkbox")
           el.checked = value === true;
         else if (

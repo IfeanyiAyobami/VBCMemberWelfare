@@ -100,23 +100,23 @@ export async function runGreetingsBrowser(page, origin) {
   try {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.goto(origin + "/overview");
-    await page.getByRole("heading", { name: "This week", exact: true }).waitFor();
+    await page.getByRole("heading", { name: /EVERY PERSON MATTERS/ }).waitFor();
     assert.equal(await page.locator(".demo-bar").count(), 0, "No permanent preview banner");
     assert(await page.locator(".nav-soon summary").isVisible(), "Previews grouped under Coming soon");
     assert(
       !(await page.locator("#navigation .nav-soon a[href='/campaigns']").isVisible()),
       "Preview screens are folded away",
     );
-    const row = page.locator(".vbc-week-row").filter({ hasText: "Fixture Celebrant" });
-    await row.getByText("Not greeted yet").waitFor();
-    const optout = page.locator(".vbc-week-row").filter({ hasText: "Quiet Optout" });
+    const row = page.locator(".vbc-greet-row").filter({ hasText: "Fixture Celebrant" });
+    await row.getByRole("button", { name: "Send greeting", exact: true }).waitFor();
+    const optout = page.locator(".vbc-greet-row").filter({ hasText: "Quiet Optout" });
     await optout.getByText("No celebration messages").waitFor();
     assert.equal(
       await optout.getByRole("button", { name: "Send greeting" }).count(),
       0,
       "No greeting button for people who opted out",
     );
-    console.log("PASS This week: celebrations with greeting status, opt-outs respected, previews folded away");
+    console.log("PASS Overview celebrations: Send greeting offered, opt-outs respected, previews folded away");
 
     await page.evaluate(() => {
       window.__opened = [];
@@ -140,13 +140,13 @@ export async function runGreetingsBrowser(page, origin) {
     assert.equal(greetings[0].channel, "whatsapp");
     await page.reload();
     await page
-      .locator(".vbc-week-row")
+      .locator(".vbc-greet-row")
       .filter({ hasText: "Fixture Celebrant" })
       .getByText(/Greeted by Care administrator/)
       .waitFor();
     assert.equal(
       await page
-        .locator(".vbc-week-row")
+        .locator(".vbc-greet-row")
         .filter({ hasText: "Fixture Celebrant" })
         .getByRole("button", { name: "Send greeting" })
         .count(),
@@ -157,10 +157,10 @@ export async function runGreetingsBrowser(page, origin) {
 
     await page.setViewportSize({ width: 390, height: 844 });
     await page.reload();
-    await page.getByRole("heading", { name: "This week", exact: true }).waitFor();
+    await page.getByRole("heading", { name: /EVERY PERSON MATTERS/ }).waitFor();
     assert(
       await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
-      "This week fits a phone without sideways scrolling",
+      "Overview fits a phone without sideways scrolling",
     );
     await page.goto(origin + "/guests");
     await page.getByRole("heading", { name: "Guest cards", exact: true }).waitFor();

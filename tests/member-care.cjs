@@ -55,7 +55,7 @@ const submit = (s) =>
   );
 const text = () => q("#main").textContent;
 (async () => {
-  ok(text().includes("This week") && text().includes("Celebrating this week"), "Overview");
+  ok(text().includes("EVERY PERSON MATTERS"), "Overview");
   const screens = [
     "members",
     "profile/m1",

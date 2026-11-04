@@ -163,6 +163,9 @@ const mock = createServer(async (req, res) => {
   const auth = tokens.get(
     (req.headers.authorization || "").replace(/^Bearer /i, ""),
   );
+  // v4.5 access checks: no fixture user is a module-only Coordinator.
+  if (url.pathname === "/rest/v1/care_journey_roles") return json(res, 200, []);
+  if (url.pathname === "/rest/v1/rpc/care_journey_restricted") return json(res, 200, false);
   if (await programmeMock(req,res,url,auth,json)) return;
   if (await whatsappMock(req,res,url,auth,json)) return;
   if (await journeyMock(req,res,url,auth,json)) return;
@@ -1299,14 +1302,16 @@ try {
           "rgb(0, 9, 86)",
           "Reference canvas colour",
         );
-        assert.equal(
-          await page
+        {
+          // v4.6 uses faint lavender overlays on navy; require a dark navy card,
+          // not one exact value.
+          const panel = await page
             .locator(".hc-panel")
             .first()
-            .evaluate((e) => getComputedStyle(e).backgroundColor),
-          "rgb(15, 15, 89)",
-          "Reference card colour",
-        );
+            .evaluate((e) => getComputedStyle(e).backgroundColor);
+          const [r, g, b] = (panel.match(/\d+(\.\d+)?/g) || []).map(Number);
+          assert(r < 60 && g < 60 && b > r && b >= 60, "Dark navy card colour: " + panel);
+        }
         assert.equal(
           await page
             .locator(".hc-sidebar nav a.active")
@@ -1334,7 +1339,7 @@ try {
     await page.goto(origin + "/home-cell");
     await page.waitForTimeout(700);
     assert(
-      (await page.locator(".hc-hero h1").textContent()).includes(
+      (await page.locator(".hc-hero").textContent()).includes(
         role === "coordinator"
           ? "Coordinator"
           : role === "area_leader"
@@ -1343,6 +1348,56 @@ try {
       ),
     );
     console.log("PASS role presentation", role);
+    if (role === "cell_leader") {
+      // v4.7 single-cell leader: This week, one-tap attendance, phone cards.
+      await page.getByText("THIS WEEK\u2019S MEETING").waitFor();
+      assert.equal(await page.locator(".hcw-steps li").count(), 5, "Five weekly steps");
+      assert.equal(
+        await page.locator(".hc-filters select").count(),
+        0,
+        "Single-cell leaders have no Area / Home cell pickers",
+      );
+      assert(
+        (await page.locator(".hc-hero h1").textContent()).trim().toLowerCase() === "this week",
+      );
+      await page.goto(origin + "/home-cell/attendance");
+      await page.locator(".hc-pla").first().waitFor();
+      assert(await page.getByRole("radio", { name: "Present" }).first().isChecked());
+      // Keep targets clear of the fixed bottom navigation before tapping.
+      const centre = (locator) =>
+        locator.evaluate((e) => e.closest("label, button").scrollIntoView({ block: "center" }));
+      const absent = page.getByRole("radio", { name: "Absent" }).first();
+      await centre(absent);
+      await absent.check({ force: true });
+      await page.getByText("0 present · 0 late · 1 absent").waitFor();
+      const markAll = page.getByRole("button", { name: "Mark all present", exact: true });
+      await centre(markAll);
+      await markAll.click();
+      await page.getByText("1 present · 0 late · 0 absent").waitFor();
+      assert(await page.getByRole("radio", { name: "Present" }).first().isChecked());
+      await page.goto(origin + "/home-cell/members");
+      const card = page.locator(".hc-member-cards li").filter({ hasText: "Test Member" });
+      await card.getByText(/Last came 18\/10\/2026/).waitFor();
+      assert(await card.isVisible(), "Member cards on phones");
+      assert(
+        await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),
+        "My cell fits a phone",
+      );
+      console.log("PASS cell leader: This week, one-tap attendance with counts, member cards with last attended");
+      assert.equal(await page.locator(".hc-workspace-select").count(), 0, "No assignment picker for one cell");
+      assert(!(await page.getByRole("button", { name: "Import CSV" }).isVisible()), "Member tools are tucked away");
+      await page.locator(".hc-leader-more > summary").click();
+      await page.getByRole("button", { name: "Import CSV" }).waitFor();
+      await page.goto(origin + "/home-cell/reports");
+      await page.waitForTimeout(800);
+      assert.equal(await page.getByText("Report access denied").count(), 0, "No audit error for leaders");
+      assert.equal(
+        await page.getByRole("heading", { name: "Cells Without a Started Meeting" }).count(),
+        0,
+        "Coordinator-only panel hidden",
+      );
+      console.log("PASS cell leader: one-cell header, member tools behind one button, no Coordinator panels or audit errors");
+    }
   }
   fixture.churchAdmin = true;
   fixture.manager = true;

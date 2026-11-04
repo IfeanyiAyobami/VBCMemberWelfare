@@ -664,6 +664,30 @@ export function mountCareUI(root, options = {}) {
       }).join("");
     const metric = (name, number, detail, symbol, tone = "") =>
       `<div class="vbc-metric ${tone}"><div class="vbc-metric-icon">${icon(symbol)}</div><div class="vbc-metric-content"><span>${name}</span><strong>${number}</strong><small>${detail}</small></div></div>`;
+    // Celebration row with the staff-assisted greeting controls (v4.4 feature).
+    const greetRow = ({ m, label }) => {
+      const occasion = label === "Birthday" ? "birthday" : "anniversary";
+      const year = Number(today.iso.slice(0, 4));
+      const greeted = greetingFor(m.id, occasion, year);
+      const canContact = m.contactConsent && !!waNumber(m);
+      const canMessage =
+        canContact &&
+        m.celebrationOpt &&
+        liveCelebrations.canGreet &&
+        liveCelebrations.greetingsAvailable &&
+        !greeted;
+      const time = (iso) =>
+        new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Lagos", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+      const status = greeted
+        ? `<span class="badge green">Greeted by ${esc(greeted.greeted_by_name)} · ${esc(time(greeted.greeted_at))}</span>`
+        : !m.celebrationOpt
+          ? '<span class="badge">No celebration messages</span>'
+          : "";
+      const actions = options.memberDirectorySaved
+        ? `${canContact ? `<button class="btn small vbc-greet-call" data-action="call-greet" data-id="${esc(m.id)}" data-occasion="${occasion}" data-year="${year}" aria-label="Call ${esc(m.first + " " + m.last)}">${icon("phone")}</button>` : ""}${canMessage ? `<button class="btn small primary" data-action="greet" data-id="${esc(m.id)}" data-occasion="${occasion}" data-year="${year}">Send greeting</button>` : ""}`
+        : "";
+      return `<div class="vbc-greet-row">${row({ m, label })}${status || actions ? `<div class="vbc-greet-actions">${status}${actions}</div>` : ""}</div>`;
+    };
     const row = ({ m, label }) =>
       `<a class="vbc-priority-row" href="/profile/${encodeURIComponent(m.id)}" data-care-route=""><span class="avatar small">${esc((m.first || "")[0])}${esc((m.last || "")[0])}</span><span class="vbc-priority-person"><strong>${esc(m.first + " " + m.last)}</strong><small>${label} today</small></span><span class="badge ${label === "Birthday" ? "red" : "blue"}">${label}</span><span aria-hidden="true">›</span></a>`;
     return `<div class="vbc-overview">
@@ -676,7 +700,7 @@ export function mountCareUI(root, options = {}) {
       </div>
       <div class="vbc-overview-grid"><div class="vbc-overview-main">
         <section class="vbc-panel"><div class="vbc-panel-head"><div><h2>Care priorities</h2><p>People and milestones that need your attention.</p></div><a href="/followups" class="vbc-panel-link">View Follow Through →</a></div>
-          ${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading saved member records…" : liveCelebrations.message || "Saved member records are unavailable.")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0, 5).map(row).join("")}</div>` : '<div class="vbc-panel-empty">No birthdays or anniversaries today. Visit Follow Through to review assigned care work.</div>'}
+          ${!loaded ? `<div class="vbc-panel-empty">${esc(liveCelebrations.status === "loading" ? "Loading saved member records…" : liveCelebrations.message || "Saved member records are unavailable.")}</div>` : celebrationsToday.length ? `<div class="vbc-priority-list">${celebrationsToday.slice(0, 5).map(greetRow).join("")}</div>` : '<div class="vbc-panel-empty">No birthdays or anniversaries today. Visit Follow Through to review assigned care work.</div>'}
         </section>
         <section class="vbc-panel vbc-quick-panel"><div class="vbc-panel-head"><div><h2>Quick actions</h2><p>Common tasks for church administration.</p></div></div><div class="vbc-quick-grid">
           <a href="/guests" data-care-route=""><span class="vbc-quick-icon red">${icon("members")}</span><strong>Review guests</strong><small>Manage visitor submissions</small><b>↗</b></a>

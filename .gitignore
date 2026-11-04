@@ -12,3 +12,6 @@ qa/
 # Historical guest personal data must stay outside the application repository.
 PRIVATE_IMPORT/
 **/LOAD_SPRING_GUESTS_2025_PRIVATE.sql
+
+# Temporary transpiled route/UI test artifacts
+.*-test.mjs

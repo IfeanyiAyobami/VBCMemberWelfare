@@ -26,6 +26,7 @@ import MemberOnboarding from "./MemberOnboarding";
 import MemberTransfers from "./MemberTransfers";
 import LeaderContacts from "./LeaderContacts";
 import LeadershipAccounts from "./LeadershipAccounts";
+import LeaderWeek, { memberSignals } from "./LeaderWeek";
 import "./workspace.css";
 import "../../app/home-cell/leaders/hco.css";
 const icons: Record<Section, string> = {
@@ -232,7 +233,11 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
     } | null>(null),
     [chosen, setChosen] = useState<{ kind: string; person: Person } | null>(
       null,
-    );
+    ),
+    [history, setHistory] = useState<WorkspaceData | null>(null),
+    [memberFilter, setMemberFilter] = useState<"all" | "missed">("all"),
+    [attCount, setAttCount] = useState({ present: 0, late: 0, absent: 0 });
+  const attendanceForm = useRef<HTMLFormElement>(null);
   const generation = useRef(0),
     requestId = useRef("");
   const load = useCallback(async () => {
@@ -270,6 +275,44 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
   useEffect(() => {
     void load();
   }, [load]);
+  // Last nine weeks for the single-cell leader: this week's meeting, who to
+  // check on, last attended dates and monthly offering.
+  const historyCell =
+    data &&
+    !data.churchAdmin &&
+    !data.manager &&
+    data.assignments.length > 0 &&
+    data.assignments.every((a) => a.role === "cell_leader") &&
+    data.cells.length === 1
+      ? data.cells[0].id
+      : "";
+  useEffect(() => {
+    if (!historyCell) {
+      setHistory(null);
+      return;
+    }
+    let live = true;
+    const end = today();
+    const start = new Date(end + "T12:00:00Z");
+    start.setUTCDate(start.getUTCDate() - 63);
+    const q = new URLSearchParams({
+      from: start.toISOString().slice(0, 10),
+      to: end,
+      cell: historyCell,
+      ...(scope ? { scope } : {}),
+    });
+    fetch("/api/home-cell/workspace?" + q, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (live) setHistory(j);
+      })
+      .catch(() => {
+        if (live) setHistory(null);
+      });
+    return () => {
+      live = false;
+    };
+  }, [historyCell, scope, data]);
   useEffect(() => {
     try {
       setDark(localStorage.getItem("hco-reference-theme") !== "light");
@@ -391,6 +434,20 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
           (!(activeCell || selectedMeeting?.cell_id) ||
             a.cell_id === (activeCell || selectedMeeting?.cell_id)),
       ));
+  // A leader with exactly one cell gets the focused "This week" experience.
+  const leaderMode =
+    !!data &&
+    !data.churchAdmin &&
+    !data.manager &&
+    data.assignments.length > 0 &&
+    data.assignments.every((a) => a.role === "cell_leader") &&
+    data.cells.length === 1;
+  const leaderCell = leaderMode ? data!.cells[0] : null;
+  const memberInfo = memberSignals(
+    history,
+    leaderCell?.id || "",
+    (data?.memberships || []).filter((m) => m.cell_id === leaderCell?.id),
+  ).signals;
   const roleName = data?.churchAdmin
     ? "Church Administrator"
     : data?.assignments.some((a) => a.role === "coordinator")
@@ -522,7 +579,33 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
       </form>
     </Panel>
   );
+  const meetingOffering = (id: string) =>
+    (data?.finances || [])
+      .filter((f) => f.meeting_id === id && f.kind === "offering" && !f.voided_at)
+      .reduce((n, f) => n + Number(f.amount), 0);
+  const meetingPresent = (id: string) =>
+    (data?.attendance || []).filter(
+      (a) => a.meeting_id === id && a.status !== "absent",
+    ).length;
   const reportsTable = (
+    <>
+    <ul className="hc-report-cards" aria-label="Fellowship reports">
+      {meetings.map((m) => (
+        <li key={m.id}>
+          <Link href={href("reports", { meeting: m.id })}>
+            <span className="hc-report-card-main">
+              <b>{displayDate(m.meeting_date)}</b>
+              <small>
+                {cellName(m.cell_id)} · {meetingPresent(m.id)} present ·{" "}
+                <span className="hc-nowrap">{money(meetingOffering(m.id))}</span>
+              </small>
+            </span>
+            <Badge value={m.status} />
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="hc-reports-table">
     <DataTable
       head={[
         "Meeting",
@@ -570,6 +653,8 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
         </tr>
       ))}
     </DataTable>
+    </div>
+    </>
   );
   return (
     <div className={"hc-app" + (dark ? " hc-dark" : "")}>
@@ -638,6 +723,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
             <span className="hc-mobile-church">VINE BRANCH CHURCH</span>Home
             Cell Office
           </span>
+{!leaderMode && (
           <select
             className="hc-workspace-select"
             aria-label="Leadership workspace"
@@ -664,6 +750,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               </option>
             ))}
           </select>
+          )}
           <button
             className="hc-icon-button"
             aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
@@ -690,11 +777,24 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
             Home <span>›</span> Home Cell Office <span>›</span>{" "}
             {titles[section]}
           </div>
-          <section className={"hc-hero hc-photo-" + section + (section === "leaders" ? " hc-hero-accounts" : "")}>
+          <section
+            className={
+              "hc-hero hc-photo-" +
+              section +
+              (section === "leaders" ? " hc-hero-accounts" : "") +
+              (leaderMode ? " hc-hero-compact" : "")
+            }
+          >
             <div>
-              <small>VINE BRANCH CHURCH · HOME CELL OFFICE</small>
+              <small>
+                {leaderMode && leaderCell
+                  ? `${leaderCell.name} · Cell Leader`
+                  : "VINE BRANCH CHURCH · HOME CELL OFFICE"}
+              </small>
               <h1>
-                {section === "overview"
+                {leaderMode && section === "overview"
+                  ? "This week"
+                  : section === "overview"
                   ? area
                     ? areaName(area)
                     : roleName === "Church Administrator"
@@ -716,86 +816,140 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               I in the midst of them.”<small>MATTHEW 18:20</small>
             </blockquote>
           </section>
-          {section !== "leaders" && <div className="hc-filters">
-            <label>
-              Area
-              <select
-                value={area}
-                onChange={(e) => {
-                  setArea(e.target.value);
-                  setCellId("");
-                  setMeetingId("");
+          {section !== "leaders" && leaderMode && (
+            <details className="hc-filters hc-filters-compact">
+              <summary aria-label={`Dates: ${displayDate(from)} to ${displayDate(to)}. Change dates`}>
+                {displayDate(from)} – {displayDate(to)} ▾
+              </summary>
+              <div className="hc-filters-body">
+              <label>
+                From
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  aria-label="From date (DD/MM/YYYY)"
+                  value={fromInput}
+                  onChange={(e) => setFromInput(e.target.value)}
+                />
+              </label>
+              <label>
+                To
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  aria-label="To date (DD/MM/YYYY)"
+                  value={toInput}
+                  onChange={(e) => setToInput(e.target.value)}
+                />
+              </label>
+              <button
+                className="hc-secondary"
+                onClick={() => {
+                  const start = parseDisplayDate(fromInput),
+                    end = parseDisplayDate(toInput);
+                  if (!start || !end || start > end) {
+                    setError(
+                      "Enter valid dates as DD/MM/YYYY, with From on or before To.",
+                    );
+                    return;
+                  }
+                  if (start === from && end === to) void load();
+                  else {
+                    setFrom(start);
+                    setTo(end);
+                  }
                 }}
+                disabled={loading}
               >
-                <option value="">All assigned areas</option>
-                {data?.areas.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Home cell
-              <select
-                value={activeCell}
-                onChange={(e) => {
-                  setCellId(e.target.value);
-                  setMeetingId("");
+                Apply dates
+              </button>
+              </div>
+            </details>
+          )}
+          {section !== "leaders" && !leaderMode && (
+            <div className="hc-filters">
+              <label>
+                Area
+                <select
+                  value={area}
+                  onChange={(e) => {
+                    setArea(e.target.value);
+                    setCellId("");
+                    setMeetingId("");
+                  }}
+                >
+                  <option value="">All assigned areas</option>
+                  {data?.areas.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Home cell
+                <select
+                  value={activeCell}
+                  onChange={(e) => {
+                    setCellId(e.target.value);
+                    setMeetingId("");
+                  }}
+                >
+                  <option value="">All assigned cells</option>
+                  {cells.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                From
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  aria-label="From date (DD/MM/YYYY)"
+                  value={fromInput}
+                  onChange={(e) => setFromInput(e.target.value)}
+                />
+              </label>
+              <label>
+                To
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="DD/MM/YYYY"
+                  aria-label="To date (DD/MM/YYYY)"
+                  value={toInput}
+                  onChange={(e) => setToInput(e.target.value)}
+                />
+              </label>
+              <button
+                className="hc-secondary"
+                onClick={() => {
+                  const start = parseDisplayDate(fromInput),
+                    end = parseDisplayDate(toInput);
+                  if (!start || !end || start > end) {
+                    setError(
+                      "Enter valid dates as DD/MM/YYYY, with From on or before To.",
+                    );
+                    return;
+                  }
+                  if (start === from && end === to) void load();
+                  else {
+                    setFrom(start);
+                    setTo(end);
+                  }
                 }}
+                disabled={loading}
               >
-                <option value="">All assigned cells</option>
-                {cells.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              From
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="DD/MM/YYYY"
-                aria-label="From date (DD/MM/YYYY)"
-                value={fromInput}
-                onChange={(e) => setFromInput(e.target.value)}
-              />
-            </label>
-            <label>
-              To
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="DD/MM/YYYY"
-                aria-label="To date (DD/MM/YYYY)"
-                value={toInput}
-                onChange={(e) => setToInput(e.target.value)}
-              />
-            </label>
-            <button
-              className="hc-secondary"
-              onClick={() => {
-                const start = parseDisplayDate(fromInput),
-                  end = parseDisplayDate(toInput);
-                if (!start || !end || start > end) {
-                  setError(
-                    "Enter valid dates as DD/MM/YYYY, with From on or before To.",
-                  );
-                  return;
-                }
-                if (start === from && end === to) void load();
-                else {
-                  setFrom(start);
-                  setTo(end);
-                }
-              }}
-              disabled={loading}
-            >
-              Apply dates
-            </button>
-          </div>}
+                Apply dates
+              </button>
+            </div>
+          )}
           {error && (
             <div className="hc-alert" role="alert">
               {error}
@@ -820,8 +974,64 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               aria-label={titles[section]}
               aria-busy={loading || busy}
             >
-              {section === "overview" && (
+              {section === "overview" && leaderMode && leaderCell && (
+                <LeaderWeek
+                  cell={leaderCell}
+                  history={history}
+                  members={data.memberships}
+                  today={today()}
+                  link={(target, meeting) =>
+                    href(target, meeting ? { meeting } : {})
+                  }
+                />
+              )}
+              {section === "overview" && !leaderMode && (
                 <>
+                  <div className="hc-mobile-care-summary">
+                    <article className="hc-panel">
+                      <small className="hc-glass-label">
+                        FELLOWSHIP & ATTENDANCE
+                      </small>
+                      <h2>Your meeting workspace</h2>
+                      <p className="hc-muted">
+                        Open a dated fellowship to record attendance, visitors
+                        and offerings.
+                      </p>
+                      <Link
+                        className="hc-mobile-primary"
+                        href={href("attendance")}
+                      >
+                        Open meetings →
+                      </Link>
+                    </article>
+                    <article className="hc-panel">
+                      <small className="hc-glass-label">
+                        NEEDS ATTENTION · SELECTED PERIOD
+                      </small>
+                      <h2>
+                        {(() => {
+                          const n = meetings.filter((m) =>
+                            ["draft", "correction_requested"].includes(
+                              m.status,
+                            ),
+                          ).length;
+                          return n === 1
+                            ? "1 report to complete"
+                            : `${n} reports to complete`;
+                        })()}
+                      </h2>
+                      <p className="hc-muted">
+                        Drafts and reports returned for correction in your
+                        current date range.
+                      </p>
+                      <Link
+                        className="hc-mobile-primary"
+                        href={href("reports")}
+                      >
+                        Review reports →
+                      </Link>
+                    </article>
+                  </div>
                   <Stats
                     items={[
                       {
@@ -853,7 +1063,8 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                       },
                     ]}
                   />
-                  {(data.churchAdmin || data.assignments.some((a) => a.role === "coordinator")) && (
+                  {(data.churchAdmin ||
+                    data.assignments.some((a) => a.role === "coordinator")) && (
                     <MemberTransfers onChanged={load} hideWhenEmpty />
                   )}
                   <Panel title="Quick Actions" className="hc-quick-panel">
@@ -1193,6 +1404,93 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
               {section === "members" && (
                 <>
                   <Panel title="Cell Members">
+                    {leaderMode && history && (
+                      <div
+                        className="hc-member-filter"
+                        role="group"
+                        aria-label="Filter members"
+                      >
+                        <button
+                          type="button"
+                          aria-pressed={memberFilter === "all"}
+                          onClick={() => setMemberFilter("all")}
+                        >
+                          All · {members.length}
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={memberFilter === "missed"}
+                          onClick={() => setMemberFilter("missed")}
+                        >
+                          Missed 2+ ·{" "}
+                          {
+                            members.filter(
+                              (m) => memberInfo.get(m.member_id)?.missedLastTwo,
+                            ).length
+                          }
+                        </button>
+                      </div>
+                    )}
+                    <ul className="hc-member-cards" aria-label="Cell members">
+                      {members
+                        .filter(
+                          (m) =>
+                            memberFilter === "all" ||
+                            !leaderMode ||
+                            memberInfo.get(m.member_id)?.missedLastTwo,
+                        )
+                        .map((m) => {
+                          const info = memberInfo.get(m.member_id);
+                          const phone = m.care_members?.phone || "";
+                          return (
+                            <li key={m.id}>
+                              <span className="hc-avatar" aria-hidden="true">
+                                {name(m.care_members).slice(0, 2).toUpperCase()}
+                              </span>
+                              <span className="hc-member-card-text">
+                                <b>{name(m.care_members)}</b>
+                                <small
+                                  className={
+                                    info?.missedLastTwo ? "hc-missed" : ""
+                                  }
+                                >
+                                  {leaderMode && info
+                                    ? info.missedLastTwo
+                                      ? "Missed last 2" +
+                                        (info.lastCame
+                                          ? " · last came " +
+                                            displayDate(info.lastCame)
+                                          : "")
+                                      : info.lastCame
+                                        ? "Last came " +
+                                          displayDate(info.lastCame)
+                                        : "No attendance recorded yet"
+                                    : cellName(m.cell_id)}
+                                </small>
+                              </span>
+                              {phone && (
+                                <a
+                                  className="hc-icon-button hc-call"
+                                  href={"tel:" + phone}
+                                  aria-label={"Call " + name(m.care_members)}
+                                >
+                                  <svg
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinejoin="round"
+                                    aria-hidden="true"
+                                  >
+                                    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />
+                                  </svg>
+                                </a>
+                              )}
+                            </li>
+                          );
+                        })}
+                    </ul>
+                    <div className="hc-members-table">
                     <DataTable
                       head={[
                         "Name",
@@ -1216,12 +1514,55 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                         </tr>
                       ))}
                     </DataTable>
+                    </div>
                     {!members.length && (
                       <Empty>No members assigned to these cells.</Empty>
                     )}
                   </Panel>
-                  {(data.churchAdmin || data.assignments.some(a=>a.role === "cell_leader")) && <MemberOnboarding cells={scopedCells.filter(c=>data.churchAdmin || data.assignments.some(a=>a.role==='cell_leader'&&a.cell_id===c.id))} scope={scope} onSaved={load} />}
-                  <MemberTransfers onChanged={load} />
+                  {leaderMode && (
+                    <p className="hc-muted hc-move-note">
+                      Moving someone to another cell? Ask your Coordinator.
+                    </p>
+                  )}
+                  {leaderMode ? (
+                    <details className="hc-panel hc-leader-more">
+                      <summary>+ Add or find a member</summary>
+                  {(data.churchAdmin ||
+                    data.assignments.some((a) => a.role === "cell_leader")) && (
+                    <MemberOnboarding
+                      cells={scopedCells.filter(
+                        (c) =>
+                          data.churchAdmin ||
+                          data.assignments.some(
+                            (a) =>
+                              a.role === "cell_leader" && a.cell_id === c.id,
+                          ),
+                      )}
+                      scope={scope}
+                      onSaved={load}
+                    />
+                  )}
+                    </details>
+                  ) : (
+                    <>
+                  {(data.churchAdmin ||
+                    data.assignments.some((a) => a.role === "cell_leader")) && (
+                    <MemberOnboarding
+                      cells={scopedCells.filter(
+                        (c) =>
+                          data.churchAdmin ||
+                          data.assignments.some(
+                            (a) =>
+                              a.role === "cell_leader" && a.cell_id === c.id,
+                          ),
+                      )}
+                      scope={scope}
+                      onSaved={load}
+                    />
+                  )}
+                    </>
+                  )}
+                  <MemberTransfers onChanged={load} hideWhenEmpty={leaderMode} />
                 </>
               )}
               {section === "attendance" && (
@@ -1241,8 +1582,24 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                           selectedMeeting.status,
                         ) ? (
                           <form
+                            ref={(node) => {
+                              attendanceForm.current = node;
+                              if (node) {
+                                const next = countAttendance(node);
+                                if (
+                                  next.present !== attCount.present ||
+                                  next.late !== attCount.late ||
+                                  next.absent !== attCount.absent
+                                )
+                                  setTimeout(() => setAttCount(next), 0);
+                              }
+                            }}
+                            className="hc-attendance-form"
                             data-draft-key={"attendance:" + selectedMeeting.id}
                             key={selectedMeeting.id + selectedMeeting.version}
+                            onChange={(e) =>
+                              setAttCount(countAttendance(e.currentTarget))
+                            }
                             onSubmit={async (e) => {
                               e.preventDefault();
                               const f = new FormData(e.currentTarget);
@@ -1271,19 +1628,58 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                               });
                             }}
                           >
+                            <div className="hc-attendance-bar">
+                              <span aria-live="polite">
+                                <b>{attCount.present}</b> present ·{" "}
+                                <b>{attCount.late}</b> late ·{" "}
+                                <b>{attCount.absent}</b> absent
+                              </span>
+                              <button
+                                type="button"
+                                className="hc-secondary"
+                                onClick={() => {
+                                  const form = attendanceForm.current;
+                                  if (!form) return;
+                                  for (const el of Array.from(
+                                    form.querySelectorAll<HTMLInputElement>(
+                                      '.hc-pla input[value="present"]',
+                                    ),
+                                  ))
+                                    el.checked = true;
+                                  // Record the new choices in the in-memory draft so a
+                                  // re-render does not restore the previous ones.
+                                  const first = form.querySelector<HTMLInputElement>(
+                                    '.hc-pla input[value="present"]',
+                                  );
+                                  if (first)
+                                    formDrafts.capture({
+                                      target: first,
+                                    } as unknown as FormEvent);
+                                  setAttCount(countAttendance(form));
+                                }}
+                              >
+                                Mark all present
+                              </button>
+                            </div>
                             <div className="hc-attendance-list">
                               {members
                                 .filter(
                                   (m) => m.cell_id === selectedMeeting.cell_id,
                                 )
                                 .map((m) => (
-                                  <label key={m.id}>
+                                  <div className="hc-att-row" key={m.id}>
                                     <span>
                                       <b>{name(m.care_members)}</b>
-                                      <small>Registered member</small>
+                                      <small>
+                                        {leaderMode &&
+                                        memberInfo.get(m.member_id)?.missedLastTwo
+                                          ? "Missed last 2"
+                                          : "Registered member"}
+                                      </small>
                                     </span>
-                                    <select
+                                    <AttendanceChoice
                                       name={m.member_id}
+                                      label={name(m.care_members)}
                                       defaultValue={
                                         data.attendance.find(
                                           (a) =>
@@ -1292,19 +1688,15 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                             a.member_id === m.member_id,
                                         )?.status || "absent"
                                       }
-                                    >
-                                      <option value="present">Present</option>
-                                      <option value="absent">Absent</option>
-                                      <option value="late">Late</option>
-                                    </select>
-                                  </label>
+                                    />
+                                  </div>
                                 ))}
                               {visits
                                 .filter(
                                   (v) => v.meeting_id === selectedMeeting.id,
                                 )
                                 .map((v) => (
-                                  <label key={v.id}>
+                                  <div className="hc-att-row" key={v.id}>
                                     <span>
                                       <b>
                                         {name(
@@ -1314,8 +1706,12 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                       </b>
                                       <small>Visitor</small>
                                     </span>
-                                    <select
+                                    <AttendanceChoice
                                       name={v.id}
+                                      label={name(
+                                        v.care_members ||
+                                          v.care_guest_submissions,
+                                      )}
                                       defaultValue={
                                         data.attendance.find(
                                           (a) =>
@@ -1324,12 +1720,8 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                             a.visitor_name === "visit:" + v.id,
                                         )?.status || "present"
                                       }
-                                    >
-                                      <option value="present">Present</option>
-                                      <option value="absent">Absent</option>
-                                      <option value="late">Late</option>
-                                    </select>
-                                  </label>
+                                    />
+                                  </div>
                                 ))}
                             </div>
                             <label>
@@ -1340,9 +1732,11 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                 defaultValue={selectedMeeting.notes || ""}
                               />
                             </label>
-                            <button disabled={busy}>
-                              Save attendance draft
-                            </button>
+                            <div className="hc-sticky-save">
+                              <button disabled={busy}>
+                                Save attendance draft
+                              </button>
+                            </div>
                             <Link
                               className="hc-inline-link"
                               href="/home-cell/visitors"
@@ -1749,8 +2143,8 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                                       name="contact_consent"
                                       defaultChecked
                                     />
-                                    May be contacted for Follow Through and church
-                                    activities
+                                    May be contacted for Follow Through and
+                                    church activities
                                   </label>
                                   <label>
                                     <input
@@ -1898,6 +2292,22 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                     {meetingSelect}
                     {selectedMeeting && (
                       <>
+                        {selectedMeeting.status === "correction_requested" &&
+                          (() => {
+                            const latest = data.corrections
+                              .filter((c) => c.meeting_id === selectedMeeting.id)
+                              .sort((a, b) =>
+                                b.requested_at.localeCompare(a.requested_at),
+                              )[0];
+                            return (
+                              <p className="hc-returned" role="alert">
+                                <strong>Returned by your Coordinator</strong>
+                                {latest?.reason
+                                  ? `: \u201c${latest.reason}\u201d`
+                                  : ". Make the change, then send it again."}
+                              </p>
+                            );
+                          })()}
                         <Report meeting={selectedMeeting} data={data} />
                         <AuditHistory
                           meeting={selectedMeeting.id}
@@ -1990,6 +2400,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                       </>
                     )}
                   </Panel>
+{!leaderMode && (
                   <Panel title="Cells Without a Started Meeting">
                     <p className="hc-muted">
                       Directory cells with no fellowship recorded in your
@@ -2006,6 +2417,7 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                         ))}
                     </div>
                   </Panel>
+                  )}
                 </>
               )}
               {section === "communications" && (
@@ -2139,18 +2551,23 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
         </footer>
       </div>
       <nav className="hc-mobile-nav" aria-label="Mobile navigation">
-        {(["overview", "members", "visitors", "attendance"] as Section[]).map(
-          (x) => (
-            <Link
-              key={x}
-              href={href(x)}
-              className={section === x ? "active" : ""}
-            >
-              <Icon name={icons[x]} />
-              <span>{x === "overview" ? "Home" : titles[x]}</span>
-            </Link>
-          ),
-        )}
+        {(["overview", "members", "attendance"] as Section[]).map((x) => (
+          <Link
+            key={x}
+            href={href(x)}
+            className={section === x ? "active" : ""}
+            aria-current={section === x ? "page" : undefined}
+          >
+            <Icon name={icons[x]} />
+            <span>
+              {x === "overview"
+                ? "Today"
+                : x === "members"
+                  ? "My cell"
+                  : "Meetings"}
+            </span>
+          </Link>
+        ))}
         <button onClick={() => setMenu(!menu)} aria-expanded={menu}>
           <span>•••</span>More
         </button>
@@ -2228,6 +2645,48 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
     a.click();
     URL.revokeObjectURL(url);
   }
+}
+/** One-tap Present / Late / Absent. Plain radio inputs, so FormData and drafts work. */
+function AttendanceChoice({
+  name,
+  label,
+  defaultValue,
+}: {
+  name: string;
+  label: string;
+  defaultValue: string;
+}) {
+  return (
+    <span className="hc-pla" role="radiogroup" aria-label={"Attendance for " + label}>
+      {(
+        [
+          ["present", "P", "Present"],
+          ["late", "L", "Late"],
+          ["absent", "A", "Absent"],
+        ] as const
+      ).map(([value, short, long]) => (
+        <label key={value} className={"hc-pla-" + value} title={long}>
+          <input
+            type="radio"
+            name={name}
+            value={value}
+            defaultChecked={defaultValue === value}
+            aria-label={long}
+          />
+          <span aria-hidden="true">{short}</span>
+        </label>
+      ))}
+    </span>
+  );
+}
+function countAttendance(form: HTMLFormElement | null) {
+  const out = { present: 0, late: 0, absent: 0 };
+  if (!form) return out;
+  for (const el of Array.from(
+    form.querySelectorAll<HTMLInputElement>('.hc-pla input[type="radio"]:checked'),
+  ))
+    if (el.value in out) out[el.value as keyof typeof out]++;
+  return out;
 }
 function Report({
   meeting: m,

@@ -1,3 +1,11 @@
+# Current release: v4.7
+
+See VBC_v4_7_LEADER_AND_FRIEND.md (no SQL; copy over v4.6 and deploy).
+
+# Current release: v4.6
+
+See VBC_v4_6_MOBILE_DASHBOARDS.md for mobile dashboard changes and setup.
+
 # Current release: v4.5.2
 
 See VBC_v4_5_2_SETUP.md for the Home Cell Friend account correction.
