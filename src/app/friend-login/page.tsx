@@ -4,6 +4,7 @@ import { useState } from "react";
 export default function Page() {
   const [identifier, setIdentifier] = useState(""),
     [pin, setPin] = useState(""),
+    [remember, setRemember] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
   return (
@@ -19,7 +20,7 @@ export default function Page() {
             const r = await fetch("/api/journey/friend-login", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ identifier, pin }),
+              body: JSON.stringify({ identifier, pin, remember }),
             });
             const d = await r.json();
             if (!r.ok) throw Error(d.message);
@@ -56,6 +57,17 @@ export default function Page() {
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
           />
         </label>
+        <label className="login-remember">
+          <input
+            type="checkbox"
+            checked={remember}
+            onChange={(e) => setRemember(e.target.checked)}
+          />{" "}
+          Keep me logged in on this device
+        </label>
+        <p className="login-remember-note">
+          Leave unchecked on a shared device.
+        </p>
         {error && <p role="alert">{error}</p>}
         <button className="btn primary" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}

@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import {readFile,writeFile,unlink} from 'node:fs/promises';
+import ts from 'typescript';
+import {JSDOM} from 'jsdom';
+import React,{act} from 'react';
+import {createRoot} from 'react-dom/client';
+const dom=new JSDOM('<div id="root"></div>',{url:'https://fixture.test/cfc'});
+for(const key of ['window','document','navigator','localStorage','HTMLElement'])Object.defineProperty(globalThis,key,{configurable:true,value:dom.window[key]});
+globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+const person={id:'p',name:'Fictional Ada',cohorts:['a','b'],attendance:[1,2,4,5,6,7].map(n=>({session_id:'s'+n,lesson:n,status:'present',date:'2026-01-10',cohort_id:'a'})).concat([{session_id:'missed',lesson:3,status:'absent',date:'2026-01-10',cohort_id:'a'},{session_id:'makeup',lesson:3,status:'present',date:'2026-03-10',cohort_id:'b'}])};
+const fixture={manager:false,canOrganize:true,name:'Grace',people:[person],cohorts:[{id:'a',name:'Cohort A',starts_on:'2026-01-01'},{id:'b',name:'Cohort B',starts_on:'2026-03-01'}],sessions:[],leaders:[],teaching:[],candidates:[]};
+globalThis.fetch=async()=>Response.json(fixture);
+const file=new URL('../.cfc-ui.mjs',import.meta.url);
+const source=ts.transpileModule(await readFile('src/components/CfcDashboard.tsx','utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText.replace(/^import ['"].*?css['"];?$/gm,'');
+await writeFile(file,source);
+const root=createRoot(document.getElementById('root'));
+try{
+ const {default:CfcDashboard,completedLessons}=await import(file.href);
+ assert.equal(completedLessons(person).length,7);
+ await act(async()=>{root.render(React.createElement(CfcDashboard,{initial:fixture}));});
+ const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim().endsWith(text));
+ await act(async()=>button('Participants').click());assert.match(document.body.textContent,/7 of 7 distinct classes completed/);
+ await act(async()=>button('View progress').click());assert.match(document.body.textContent,/Attendance history/);assert.match(document.body.textContent,/Submit completion for review/);
+ assert.ok(!button('Approve completion'));
+ await act(async()=>button('Classes').click());assert.match(document.body.textContent,/Create cohort/);assert.match(document.body.textContent,/Enrol \/ arrange a make-up/);
+ assert.equal(document.querySelector('a[href="/followups"]'),null);assert.equal(document.querySelector('a[href="/overview"]'),null);
+ await act(async()=>button('Account').click());assert.ok(button('Log out'));
+ console.log('PASS rendered CFC navigation, 7 distinct cross-cohort credits, leader-owned cohort/enrolment controls, coordinator-only approval and no full-dashboard links');
+}finally{await act(async()=>root.unmount());await unlink(file);}

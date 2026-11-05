@@ -283,7 +283,7 @@ export default function FriendDesk({
   staff: StaffIdentity;
   dark: boolean;
   onTheme: () => void;
-  onSignOut: () => void;
+  onSignOut: () => Promise<boolean>;
 }) {
   const uid = staff.user_id;
   const [showAllStory, setShowAllStory] = useState(false);
@@ -297,6 +297,8 @@ export default function FriendDesk({
     >([]),
     [celebrationError, setCelebrationError] = useState(""),
     [profileTab, setProfileTab] = useState<"overview" | "history">("overview"),
+    [logoutError, setLogoutError] = useState(""),
+    [loggingOut, setLoggingOut] = useState(false),
     [registering, setRegistering] = useState(false),
     [search, setSearch] = useState(""),
     [peopleFilter, setPeopleFilter] = useState<"all" | "visitors" | "members">(
@@ -949,7 +951,10 @@ export default function FriendDesk({
                     ),
                   ],
                   ["Membership Sunday", !!person.official_joined_on],
-                  ["Foundation classes", !!(detail?.cfc?.completed_on || person.cfc_completed_on)],
+                  [
+                    "Foundation classes",
+                    !!(detail?.cfc?.completed_on || person.cfc_completed_on),
+                  ],
                   ["Continuing care", person.care_status === "completed"],
                 ].map(([label, complete], i) => (
                   <li key={String(label)}>
@@ -1143,7 +1148,8 @@ export default function FriendDesk({
           </button>
           <button
             className="fm-secondary"
-            onClick={() => {
+            disabled={loggingOut}
+            onClick={async () => {
               const left = loadOutbox(uid).length;
               if (
                 left &&
@@ -1152,12 +1158,25 @@ export default function FriendDesk({
                 )
               )
                 return;
-              clearFriendStorage(uid);
-              onSignOut();
+              setLoggingOut(true);
+              setLogoutError("");
+              const ok = await onSignOut();
+              if (!ok) {
+                setLogoutError("Sign out could not finish. Please try again.");
+                setLoggingOut(false);
+              }
             }}
           >
-            Sign out
+            {loggingOut ? "Signing out…" : "Log out"}
           </button>
+          {logoutError && (
+            <p className="fm-error" role="alert">
+              {logoutError}
+            </p>
+          )}
+          <a className="fm-link" href="/access">
+            Use a different account
+          </a>
         </div>
       </main>
     );

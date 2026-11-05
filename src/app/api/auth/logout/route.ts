@@ -1,3 +1,4 @@
+import { clearLoginPreference } from "@/lib/auth/login-preference";
 import { type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseConfig } from "@/lib/auth/config";
@@ -20,6 +21,7 @@ export async function POST(request: NextRequest) {
         { message: "We could not complete sign-out. Please try again." },
         503,
       );
+    await clearLoginPreference();
     return authJSON({ next: "/access" });
   } catch {
     return authJSON(

@@ -1,3 +1,4 @@
+import AccountSwitch from "@/components/AccountSwitch";
 import { redirect } from "next/navigation";
 import StaffAccess from "@/components/StaffAccess";
 import { getStaffSession } from "@/lib/auth/staff";
@@ -12,7 +13,16 @@ export default async function AccessPage({
   const params = await searchParams;
   const next = safeNextPath(params.next);
   const session = await getStaffSession();
-  if (session.status === "ready") redirect(next);
+  if (session.status === "ready") {
+    if (session.staff.role === "followup_worker" && next !== "/followups")
+      return (
+        <AccountSwitch
+          name={session.staff.display_name}
+          userId={session.staff.user_id}
+        />
+      );
+    redirect(next);
+  }
   return (
     <StaffAccess
       next={next}

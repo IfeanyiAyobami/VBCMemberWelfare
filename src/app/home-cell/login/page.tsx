@@ -5,9 +5,11 @@ import "./login.css";
 export default function Login() {
   const [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
+    [remember, setRemember] = useState(false),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [visible, setVisible] = useState(false),
+    [staffMode, setStaffMode] = useState(false),
     [recover, setRecover] = useState(false),
     [recoveryMessage, setRecoveryMessage] = useState("");
   const router = useRouter();
@@ -46,7 +48,11 @@ export default function Login() {
         <div className="hcl-card">
           <span className="hcl-kicker">LEADERSHIP ACCESS</span>
           <h2>Welcome back</h2>
-          <p>Sign in with your approved leadership account.</p>
+          <p>
+            {staffMode
+              ? "Administrator / coordinator password sign-in."
+              : "Cell leaders: use your coordinator-generated four-digit PIN."}
+          </p>
           <form
             aria-busy={busy}
             onSubmit={async (e) => {
@@ -59,7 +65,14 @@ export default function Login() {
                   {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ email: email.trim(), identifier: email.trim(), password }),
+                    body: JSON.stringify({
+                      email: email.trim(),
+                      identifier: email.trim(),
+                      password,
+                      pin: password,
+                      mode: staffMode ? "staff" : "pin",
+                      remember,
+                    }),
                   },
                 );
                 const j = await r.json();
@@ -82,7 +95,9 @@ export default function Login() {
               }
             }}
           >
-            <label htmlFor="hcl-email">{recover ? "Email address" : "Email or phone number"}</label>
+            <label htmlFor="hcl-email">
+              {recover ? "Email address" : "Email or phone number"}
+            </label>
             <input
               id="hcl-email"
               required
@@ -96,22 +111,35 @@ export default function Login() {
             />
             {!recover && (
               <>
-                <label htmlFor="hcl-password">Password</label>
+                <label htmlFor="hcl-password">
+                  {staffMode ? "Password" : "4-digit PIN"}
+                </label>
                 <div className="hcl-password">
                   <input
                     id="hcl-password"
                     required
                     type={visible ? "text" : "password"}
                     autoComplete="current-password"
-                    maxLength={1024}
-                    placeholder="Enter your password"
+                    maxLength={staffMode ? 1024 : 4}
+                    minLength={staffMode ? 1 : 4}
+                    inputMode={staffMode ? "text" : "numeric"}
+                    pattern={staffMode ? undefined : "[0-9]{4}"}
+                    placeholder={
+                      staffMode ? "Enter your password" : "Enter 4-digit PIN"
+                    }
                     value={password}
                     disabled={busy}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) =>
+                      setPassword(
+                        staffMode
+                          ? e.target.value
+                          : e.target.value.replace(/\D/g, "").slice(0, 4),
+                      )
+                    }
                   />
                   <button
                     type="button"
-                    aria-label={visible ? "Hide password" : "Show password"}
+                    aria-label={visible ? "Hide credential" : "Show credential"}
                     aria-pressed={visible}
                     onClick={() => setVisible(!visible)}
                   >
@@ -124,6 +152,16 @@ export default function Login() {
               <div className="hcl-error" role="alert">
                 {error}
               </div>
+            )}
+            {!recover && (
+              <label className="login-remember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />{" "}
+                Keep me logged in on this device
+              </label>
             )}
             <button className="hcl-submit" disabled={busy} type="submit">
               {busy
@@ -138,18 +176,33 @@ export default function Login() {
             type="button"
             className="hcl-recovery-toggle"
             onClick={() => {
-              setRecover(!recover);
+              setStaffMode(!staffMode);
+              setRecover(false);
+              setPassword("");
               setError("");
-              setRecoveryMessage("");
             }}
           >
-            {recover ? "Return to sign in" : "Forgot your password?"}
+            {staffMode
+              ? "Cell leader PIN sign-in"
+              : "Administrator / coordinator sign-in"}
           </button>
+          {staffMode && (
+            <button
+              type="button"
+              className="hcl-recovery-toggle"
+              onClick={() => {
+                setRecover(!recover);
+                setError("");
+                setRecoveryMessage("");
+              }}
+            >
+              {recover ? "Return to sign in" : "Forgot your password?"}
+            </button>
+          )}
           {recoveryMessage && <p role="status">{recoveryMessage}</p>}
           <p className="hcl-help">
-            Need access or help with your password?
-            <br />
-            Phone-only accounts: contact your church administrator for password help.
+            Lost your PIN? Ask your Home Cell coordinator to generate a
+            replacement. You cannot choose or change your PIN yourself.
           </p>
           <div className="hcl-footnote">
             Access is limited to verified leadership assignments.

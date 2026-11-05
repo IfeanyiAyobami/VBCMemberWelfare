@@ -41,7 +41,12 @@ type Mode =
   | "password"
   | "credentials"
   | null;
-type Credential = { login: string; password: string; warning?: string };
+type Credential = {
+  login: string;
+  password: string;
+  pin?: boolean;
+  warning?: string;
+};
 type Form = {
   email: string;
   phone: string;
@@ -276,10 +281,11 @@ export default function LeadershipAccounts() {
         );
       saved = true;
       setRevision((x) => x + 1);
-      if (data.temporary_password) {
+      if (data.temporary_password || data.pin) {
         setCredentials({
-          login: data.login,
-          password: data.temporary_password,
+          login: data.login || selected?.email || selected?.phone || "",
+          password: data.pin || data.temporary_password,
+          pin: !!data.pin,
           warning: data.audit_pending ? data.message : undefined,
         });
         setAcknowledged(false);
@@ -401,7 +407,7 @@ export default function LeadershipAccounts() {
   }
   function credentialText() {
     return credentials
-      ? `Vine Branch Church — Home Cell Office\nSign in: ${location.origin}/home-cell/login\nLogin: ${credentials.login}\nTemporary password: ${credentials.password}\nChoose a new personal password at first sign-in.\nShare privately and delete this file after handover.\n`
+      ? `Vine Branch Church — Home Cell Office\nSign in: ${location.origin}/home-cell/login\nLogin: ${credentials.login}\n${credentials.pin ? "Home Cell PIN" : "Temporary password"}: ${credentials.password}\n${credentials.pin ? "Only your coordinator can replace this PIN." : "Choose a new personal password at first sign-in."}\nShare privately and delete this file after handover.\n`
       : "";
   }
   function download() {
@@ -787,7 +793,7 @@ export default function LeadershipAccounts() {
               aria-pressed={detailTab === "security"}
               onClick={() => setDetailTab("security")}
             >
-              Password & access
+              Security & access
             </button>
           </div>
           {detailTab === "roles" ? (
@@ -834,14 +840,37 @@ export default function LeadershipAccounts() {
             <div className="la-security-options">
               <section>
                 <div>
-                  <h3>Temporary password</h3>
+                  <h3>
+                    {selected.role === "cell_leader"
+                      ? "Four-digit Home Cell PIN"
+                      : "Temporary password"}
+                  </h3>
                   <p>
-                    Generate a new password if the previous one was lost. The
-                    old password is replaced and a personal password is required
-                    at sign-in.
+                    {selected.role === "cell_leader"
+                      ? "Generate a four-digit PIN for this leader. A replacement invalidates the previous PIN; Friend credentials stay unchanged. Only coordinators and church administrators can generate it."
+                      : "Generate a replacement password if the previous one was lost. A personal password is required at sign-in."}
                   </p>
                 </div>
-                {admin && selected.user_id !== actorId ? (
+                {selected.role === "cell_leader" ? (
+                  <button
+                    className="la-primary"
+                    disabled={
+                      busy || selected.suspended || selected.user_id === actorId
+                    }
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "Generate a new four-digit Home Cell PIN? The previous PIN will stop working. Friend credentials stay unchanged.",
+                        )
+                      )
+                        void request("/api/home-cell/leaders/pin", {
+                          user_id: selected.user_id,
+                        });
+                    }}
+                  >
+                    Generate / reset 4-digit PIN
+                  </button>
+                ) : admin && selected.user_id !== actorId ? (
                   <button
                     className="la-primary"
                     disabled={selected.suspended || selected.needsPhoneRepair}
@@ -986,10 +1015,12 @@ export default function LeadershipAccounts() {
                 <div className="la-note">
                   <b>Email, phone, or both</b>
                   <p>
-                    New accounts receive a generated temporary password.
-                    Existing accounts keep their current password. A Gmail
-                    address does not mean the leader should use their Gmail
-                    password here.
+                    Cell leaders use coordinator-generated four-digit PINs.
+                    After adding a cell leader, open their account’s security
+                    section and generate the PIN. Other new leadership accounts
+                    receive a temporary password. Existing accounts keep their
+                    current password. A Gmail address does not mean the leader
+                    should use their Gmail password here.
                   </p>
                 </div>
               </>
@@ -1211,7 +1242,9 @@ export default function LeadershipAccounts() {
             <div>
               <b>Ready for a secure handover</b>
               <p>
-                The leader must choose a personal password at first sign-in.
+                {credentials.pin
+                  ? "Sign in with this PIN. Only your coordinator can replace it."
+                  : "The leader must choose a personal password at first sign-in."}
               </p>
             </div>
           </div>
@@ -1224,7 +1257,7 @@ export default function LeadershipAccounts() {
               <input readOnly value={credentials.login} />
             </label>
             <label>
-              Temporary password
+              {credentials.pin ? "4-digit Home Cell PIN" : "Temporary password"}
               <div className="la-password-field">
                 <input
                   aria-label="Temporary password"

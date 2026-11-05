@@ -1,4 +1,5 @@
 "use client";
+import { clearFriendStorage } from "@/lib/journey/outbox";
 import {
   useEffect,
   useRef,
@@ -23,6 +24,8 @@ import WhatsAppInvitations from "./WhatsAppInvitations";
 import CommandPalette from "./CommandPalette";
 import FriendDesk from "./FriendDesk";
 import JourneyImport from "./JourneyImport";
+import CfcDashboard from "./CfcDashboard";
+import CfcLeaderAccounts from "./CfcLeaderAccounts";
 import FriendAccounts from "./FriendAccounts";
 import JourneyCelebrationDates from "./JourneyCelebrationDates";
 import JourneyRegister from "./JourneyRegister";
@@ -35,6 +38,7 @@ const labels: Record<string, string> = {
   overview: "Today",
   register: "People register",
   friends: "Friends & accounts",
+  cfc_leaders: "CFC Leader account",
   visitors: "Visitors",
   followups: "Contact queue",
   attendance: "Church attendance",
@@ -306,9 +310,14 @@ export default function JourneyDesk({
         page: String(page),
         view:
           (view === "overview" && stage === "overdue") ||
-          ["register", "friends", "ministry", "home_cells", "reports"].includes(
-            view,
-          )
+          [
+            "register",
+            "friends",
+            "cfc_leaders",
+            "ministry",
+            "home_cells",
+            "reports",
+          ].includes(view)
             ? "all"
             : view,
         stage,
@@ -513,13 +522,16 @@ export default function JourneyDesk({
     }
   }
   async function signout() {
-    if (busy) return;
+    if (busy) return false;
     try {
       const r = await fetch("/api/auth/logout", { method: "POST" });
       if (!r.ok) throw Error("Unable to sign out. Please try again.");
+      clearFriendStorage(staff.user_id);
       location.href = "/access";
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to sign out.");
+      return false;
     }
   }
   const rows = snapshot?.items || [],
@@ -1853,7 +1865,7 @@ export default function JourneyDesk({
         staff={staff}
         dark={dark}
         onTheme={theme}
-        onSignOut={() => void signout()}
+        onSignOut={signout}
       />
     );
   if (!caps && staff.role === "followup_worker")
@@ -1890,7 +1902,7 @@ export default function JourneyDesk({
         <nav aria-label="Visitor journey">
           {Object.entries(labels)
             .filter(([key]) =>
-              key === "friends"
+              ["friends", "cfc_leaders"].includes(key)
                 ? !!caps?.coordinator
                 : !caps ||
                   caps.coordinator ||
@@ -1904,7 +1916,11 @@ export default function JourneyDesk({
                 aria-current={view === key ? "page" : undefined}
                 onClick={() => navigate(key)}
               >
-                <Icon name={key === "friends" ? "visitors" : key} />
+                <Icon
+                  name={
+                    ["friends", "cfc_leaders"].includes(key) ? "visitors" : key
+                  }
+                />
                 {label}
                 {key === "membership" && !!stats.eligible && (
                   <b>{stats.eligible}</b>
@@ -2090,7 +2106,11 @@ export default function JourneyDesk({
                   caps?.foundation &&
                   button("cohort", "Create cohort", false)}
               </div>
-              {view === "friends" && caps?.coordinator ? (
+              {view === "cfc_leaders" && caps?.coordinator ? (
+                <CfcLeaderAccounts />
+              ) : view === "cfc" && caps?.coordinator ? (
+                <CfcDashboard embedded />
+              ) : view === "friends" && caps?.coordinator ? (
                 <FriendAccounts />
               ) : view === "reports" ? (
                 <JourneyReports snapshot={snapshot} onPerson={openPerson} />

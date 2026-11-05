@@ -1,3 +1,4 @@
+import AccountSwitch from "@/components/AccountSwitch";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import JourneyDesk from "@/components/JourneyDesk";
@@ -29,7 +30,12 @@ export default async function CarePage({
   if (session.status === "unauthenticated")
     redirect("/access?next=" + encodeURIComponent("/" + (path || "overview")));
   if (session.staff.role === "followup_worker" && path !== "followups")
-    redirect("/followups");
+    return (
+      <AccountSwitch
+        name={session.staff.display_name}
+        userId={session.staff.user_id}
+      />
+    );
   if (path === "followups") {
     const client = await createClient();
     const scope = await client.rpc("care_journey_register", {

@@ -35,6 +35,21 @@ async function handlePOST(req: NextRequest) {
         },
         400,
       );
+    const assignment = await a.db
+      .from("hco_assignments")
+      .select("role")
+      .eq("id", b.assignment_id)
+      .maybeSingle();
+    if (assignment.error || !assignment.data)
+      return authJSON(
+        { message: "Select an active leadership assignment." },
+        409,
+      );
+    if (assignment.data.role === "cell_leader")
+      return authJSON(
+        { message: "Use Generate / reset 4-digit PIN for cell leaders." },
+        409,
+      );
     // Service-only counter; never store the administrator ID in the rate table.
     const bucket = createHmac(
       "sha256",

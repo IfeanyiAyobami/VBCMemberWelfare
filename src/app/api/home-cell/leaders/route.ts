@@ -1,5 +1,8 @@
 import { withRoute } from "@/lib/home-cell/route";
-import {internalLoginEmail,publicLoginEmail} from "@/lib/home-cell/phone-usernames";
+import {
+  internalLoginEmail,
+  publicLoginEmail,
+} from "@/lib/home-cell/phone-usernames";
 import { createHash, randomBytes } from "node:crypto";
 import { normalizeLoginPhone } from "@/lib/home-cell/identity";
 import { authJSON } from "@/lib/auth/http";
@@ -8,7 +11,8 @@ import { findAccountByIdentity } from "@/lib/home-cell/accounts";
 import { actor } from "@/lib/home-cell/admin";
 import { hasSameOrigin } from "@/lib/auth/http";
 export const dynamic = "force-dynamic";
-const reply = (body: unknown, options?: {status: number}) => authJSON(body, options?.status || 200);
+const reply = (body: unknown, options?: { status: number }) =>
+  authJSON(body, options?.status || 200);
 const roles = ["church_admin", "coordinator", "area_leader", "cell_leader"];
 async function handleGET() {
   try {
@@ -37,7 +41,13 @@ async function handleGET() {
     const userIds = [...new Set((allowed || []).map((x) => x.user_id))];
     const identities: Record<
       string,
-      { email: string; phone: string; name: string; lastSignIn: string | null; passwordChangeRequired: boolean }
+      {
+        email: string;
+        phone: string;
+        name: string;
+        lastSignIn: string | null;
+        passwordChangeRequired: boolean;
+      }
     > = {};
     for (let i = 0; i < userIds.length; i += 10) {
       await Promise.all(
@@ -47,18 +57,32 @@ async function handleGET() {
           if (data.user)
             identities[id] = {
               email: data.user.email || "",
-              phone: data.user.phone ? "+" + data.user.phone.replace(/\D/g, "") : "",
+              phone: data.user.phone
+                ? "+" + data.user.phone.replace(/\D/g, "")
+                : "",
               name: String(
-                data.user.user_metadata?.full_name || publicLoginEmail(data.user.email) || data.user.app_metadata?.hco_phone_username || data.user.phone || "Leader",
+                data.user.user_metadata?.full_name ||
+                  publicLoginEmail(data.user.email) ||
+                  data.user.app_metadata?.hco_phone_username ||
+                  data.user.phone ||
+                  "Leader",
               ),
               lastSignIn: data.user.last_sign_in_at || null,
-              passwordChangeRequired: data.user.app_metadata?.hco_password_change_required === true,
+              passwordChangeRequired:
+                data.user.app_metadata?.hco_password_change_required === true,
             };
         }),
       );
     }
-    const usernameResult = await a.db.from("hco_phone_usernames").select("user_id,phone").in("user_id",userIds);
-    if(usernameResult.error) return reply({message:"Apply migration 013 to manage phone usernames."},{status:503});
+    const usernameResult = await a.db
+      .from("hco_phone_usernames")
+      .select("user_id,phone")
+      .in("user_id", userIds);
+    if (usernameResult.error)
+      return reply(
+        { message: "Apply migration 013 to manage phone usernames." },
+        { status: 503 },
+      );
     const access = await a.db
       .from("hco_access")
       .select("user_id,suspended_at")
@@ -69,8 +93,12 @@ async function handleGET() {
         ...x,
         ...identities[x.user_id],
         email: publicLoginEmail(identities[x.user_id]?.email),
-        phone: usernameResult.data?.find(p=>p.user_id===x.user_id)?.phone || identities[x.user_id]?.phone || "",
-        needsPhoneRepair: !!identities[x.user_id]?.phone && !identities[x.user_id]?.email,
+        phone:
+          usernameResult.data?.find((p) => p.user_id === x.user_id)?.phone ||
+          identities[x.user_id]?.phone ||
+          "",
+        needsPhoneRepair:
+          !!identities[x.user_id]?.phone && !identities[x.user_id]?.email,
         suspended: !!access.data?.find((y) => y.user_id === x.user_id)
           ?.suspended_at,
       })),
@@ -95,8 +123,17 @@ async function handlePOST(req: NextRequest) {
     const role = String(body.role || "");
     const areaId = body.area_id || null;
     const cellId = body.cell_id || null;
-    if (email.endsWith("@home-cell.invalid")) return reply({message:"Enter a real email address or a phone number."},{status:400});
-    if ((!email && !phone) || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) || (rawPhone && !phone) || !roles.includes(role))
+    if (email.endsWith("@home-cell.invalid"))
+      return reply(
+        { message: "Enter a real email address or a phone number." },
+        { status: 400 },
+      );
+    if (
+      (!email && !phone) ||
+      (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) ||
+      (rawPhone && !phone) ||
+      !roles.includes(role)
+    )
       return reply(
         { message: "Enter a valid email or phone number and leadership role" },
         { status: 400 },
@@ -110,10 +147,7 @@ async function handlePOST(req: NextRequest) {
       (role === "area_leader" && !areaId) ||
       (role === "cell_leader" && !cellId)
     )
-      return reply(
-        { message: "Assignment scope required" },
-        { status: 400 },
-      );
+      return reply({ message: "Assignment scope required" }, { status: 400 });
     if (role === "cell_leader") {
       const { data: cell } = await a.db
         .from("hco_cells")
@@ -121,26 +155,14 @@ async function handlePOST(req: NextRequest) {
         .eq("id", cellId)
         .maybeSingle();
       if (!cell || (!a.churchAdmin && !a.areas.includes(cell.area_id)))
-        return reply(
-          { message: "Cell outside your areas" },
-          { status: 403 },
-        );
+        return reply({ message: "Cell outside your areas" }, { status: 403 });
       if (!a.churchAdmin && !a.areas.includes(cell.area_id))
-        return reply(
-          { message: "Outside your area" },
-          { status: 403 },
-        );
+        return reply({ message: "Outside your area" }, { status: 403 });
       if (areaId && cell.area_id !== areaId)
-        return reply(
-          { message: "Area/cell mismatch" },
-          { status: 400 },
-        );
+        return reply({ message: "Area/cell mismatch" }, { status: 400 });
     }
     if (role === "area_leader" && !a.churchAdmin && !a.areas.includes(areaId))
-      return reply(
-        { message: "Outside your area" },
-        { status: 403 },
-      );
+      return reply({ message: "Outside your area" }, { status: 403 });
     if (!a.churchAdmin && !a.areas.length) throw new Error("FORBIDDEN");
     if (role !== "church_admin" && role !== "cell_leader") {
       const { data: area, error: areaError } = await a.db
@@ -150,19 +172,13 @@ async function handlePOST(req: NextRequest) {
         .eq("is_active", true)
         .maybeSingle();
       if (areaError || !area)
-        return reply(
-          { message: "Select an active area" },
-          { status: 400 },
-        );
+        return reply({ message: "Select an active area" }, { status: 400 });
     }
     if (
       (role === "church_admin" && (areaId || cellId)) ||
       (role !== "cell_leader" && cellId)
     )
-      return reply(
-        { message: "Invalid scope for role" },
-        { status: 400 },
-      );
+      return reply({ message: "Invalid scope for role" }, { status: 400 });
     const { error: setupError } = await a.db.rpc("hco_session_allowed", {
       p_user: a.user.id,
       p_session: "00000000-0000-0000-0000-000000000000",
@@ -175,8 +191,15 @@ async function handlePOST(req: NextRequest) {
         },
         { status: 503 },
       );
-    const phoneSetup = await a.db.from("hco_phone_usernames").select("user_id").limit(1);
-    if(phoneSetup.error) return reply({message:"Apply migration 013 before creating leaders."},{status:503});
+    const phoneSetup = await a.db
+      .from("hco_phone_usernames")
+      .select("user_id")
+      .limit(1);
+    if (phoneSetup.error)
+      return reply(
+        { message: "Apply migration 013 before creating leaders." },
+        { status: 503 },
+      );
     const confirmExisting = (user: { email?: string; phone?: string }) =>
       reply(
         {
@@ -187,7 +210,10 @@ async function handlePOST(req: NextRequest) {
         },
         { status: 409 },
       );
-    let existing = await findAccountByIdentity(a.db, {email: email || undefined, phone: phone || undefined});
+    let existing = await findAccountByIdentity(a.db, {
+      email: email || undefined,
+      phone: phone || undefined,
+    });
     if (existing && body.confirm_existing !== true)
       return confirmExisting(existing);
     if (body.existing_only && !existing)
@@ -203,17 +229,34 @@ async function handlePOST(req: NextRequest) {
     let temporaryPassword: string | undefined;
     if (!target) {
       temporaryPassword = "Vbc!" + randomBytes(18).toString("base64url") + "7a";
-      const {data: created, error: createError} = await a.db.auth.admin.createUser({
-        email: email || internalLoginEmail(),
-        email_confirm: true,
-        password: temporaryPassword,
-        user_metadata: {full_name: String(body.full_name || "").trim().slice(0, 160)},
-        app_metadata: {hco_phone_username: phone, hco_password_change_required: true, hco_temporary_password_hash: createHash("sha256").update(temporaryPassword).digest("hex")},
-      });
+      const { data: created, error: createError } =
+        await a.db.auth.admin.createUser({
+          email: email || internalLoginEmail(),
+          email_confirm: true,
+          password: temporaryPassword,
+          user_metadata: {
+            full_name: String(body.full_name || "")
+              .trim()
+              .slice(0, 160),
+          },
+          app_metadata: {
+            hco_phone_username: phone,
+            hco_password_change_required: true,
+            hco_temporary_password_hash: createHash("sha256")
+              .update(temporaryPassword)
+              .digest("hex"),
+          },
+        });
       if (createError || !created.user) {
-        existing = await findAccountByIdentity(a.db, {email: email || undefined, phone: phone || undefined});
+        existing = await findAccountByIdentity(a.db, {
+          email: email || undefined,
+          phone: phone || undefined,
+        });
         if (existing) return confirmExisting(existing);
-        return reply({message: createError?.message || "Account creation failed"}, {status: 400});
+        return reply(
+          { message: createError?.message || "Account creation failed" },
+          { status: 400 },
+        );
       }
       target = created.user.id;
       invitedNew = true;
@@ -237,7 +280,14 @@ async function handlePOST(req: NextRequest) {
     });
     if (error && invitedNew) {
       const cleanup = await a.db.auth.admin.deleteUser(target!);
-      if (cleanup.error) return reply({message: "Account creation was incomplete and needs administrator reconciliation. No credentials were returned."}, {status: 503});
+      if (cleanup.error)
+        return reply(
+          {
+            message:
+              "Account creation was incomplete and needs administrator reconciliation. No credentials were returned.",
+          },
+          { status: 503 },
+        );
     }
     if (error)
       return reply(
@@ -257,10 +307,15 @@ async function handlePOST(req: NextRequest) {
       ok: true,
       user_id: target,
       existing_account: !invitedNew,
-      ...(invitedNew ? {temporary_password: temporaryPassword, login: email || phone} : {}),
-      message: invitedNew
-        ? "Leader created. Copy the temporary password now; it will not be shown again."
-        : "Leadership role added to the existing account. Their current password and assignments are unchanged.",
+      ...(invitedNew && role !== "cell_leader"
+        ? { temporary_password: temporaryPassword, login: email || phone }
+        : {}),
+      message:
+        role === "cell_leader"
+          ? "Leadership saved. Open this leader’s Security section and select Generate / reset 4-digit PIN to finish setup."
+          : invitedNew
+            ? "Leader created. Copy the temporary password now; it will not be shown again."
+            : "Leadership role added to the existing account. Their current password and assignments are unchanged.",
     });
   } catch (e) {
     return reply(

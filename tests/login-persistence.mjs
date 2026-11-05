@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import {sessionCookieOptions,REMEMBER_SECONDS} from '../src/lib/auth/persistence.ts';
+const original={maxAge:31536000,expires:new Date('2030-01-01'),httpOnly:true,secure:true,path:'/'};
+const session=sessionCookieOptions(original,false);
+assert.equal(session.maxAge,undefined);assert.equal(session.expires,undefined);
+assert.equal(session.httpOnly,true);assert.equal(session.secure,true);
+assert.equal(original.maxAge,31536000);
+assert.equal(sessionCookieOptions(original,true).maxAge,REMEMBER_SECONDS);
+const deletion={maxAge:0,expires:new Date(0),path:'/'};
+assert.deepEqual(sessionCookieOptions(deletion,true),deletion);
+assert.deepEqual(sessionCookieOptions(deletion,false),deletion);
+console.log('PASS session-only cookies, 30-day persistence, unchanged security options and logout deletion');

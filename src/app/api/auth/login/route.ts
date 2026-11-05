@@ -1,3 +1,4 @@
+import { saveLoginPreference } from "@/lib/auth/login-preference";
 import { type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseConfig } from "@/lib/auth/config";
@@ -13,7 +14,12 @@ export async function POST(request: NextRequest) {
     );
   const config = getSupabaseConfig();
   if (!config.ready) return authJSON({ message: config.message }, 503);
-  let payload: { email?: unknown; password?: unknown; next?: unknown };
+  let payload: {
+    email?: unknown;
+    password?: unknown;
+    next?: unknown;
+    remember?: unknown;
+  };
   try {
     if (!request.headers.get("content-type")?.includes("application/json"))
       throw new Error();
@@ -36,7 +42,9 @@ export async function POST(request: NextRequest) {
   )
     return authJSON({ message: "Enter a valid email and your password." }, 400);
   try {
-    const supabase = await createClient();
+    const supabase = await createClient({
+      remember: payload.remember === true,
+    });
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -68,7 +76,13 @@ export async function POST(request: NextRequest) {
         session.status === "unavailable" ? 503 : 403,
       );
     }
-    return authJSON({ next: session.staff.role === "followup_worker" ? "/followups" : safeNextPath(payload.next) });
+    await saveLoginPreference(payload.remember === true);
+    return authJSON({
+      next:
+        session.staff.role === "followup_worker"
+          ? "/followups"
+          : safeNextPath(payload.next),
+    });
   } catch {
     return authJSON(
       { message: "We cannot reach sign-in right now. Please try again." },

@@ -1,9 +1,9 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.18.0",
+  "version": "0.20.0",
   "private": true,
   "type": "module",
-  "description": "VBC Member Care v4.8 \u2014 Approved Friend dashboard with no full-view access",
+  "description": "VBC Member Care v4.10 \u2014 Single CFC leader dashboard and cross-cohort completion",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -36,7 +36,9 @@
     "test:greetings": "node tests/greetings-database.mjs",
     "test:v45": "node tests/v41-database.mjs && node --experimental-strip-types tests/friend-pin.mjs && node --experimental-strip-types tests/friend-pin-routes.mjs && node --experimental-strip-types tests/friend-account-routes.mjs && node --experimental-strip-types tests/v41-intake.mjs",
     "test:mobile-friend": "node --experimental-strip-types tests/mobile-friend-ui.mjs",
-    "test:friend-dashboard": "node --experimental-strip-types tests/mobile-friend-ui.mjs && node --experimental-strip-types tests/friend-registration-ui.mjs && node --experimental-strip-types tests/friend-shell-access.mjs && node --experimental-strip-types tests/friend-celebrations-route.mjs"
+    "test:friend-dashboard": "node --experimental-strip-types tests/mobile-friend-ui.mjs && node --experimental-strip-types tests/friend-registration-ui.mjs && node --experimental-strip-types tests/friend-shell-access.mjs && node --experimental-strip-types tests/friend-celebrations-route.mjs",
+    "test:home-cell-pins": "node tests/home-cell-pin-database.mjs && node --experimental-strip-types tests/home-cell-pin-routes.mjs && node --experimental-strip-types tests/login-persistence.mjs && node --experimental-strip-types tests/home-cell-pin-generation.mjs",
+    "test:cfc": "node tests/cfc-database.mjs && node --experimental-strip-types tests/cfc-pin-routes.mjs && node tests/cfc-ui.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

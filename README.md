@@ -1,3 +1,15 @@
+## v4.10 — CFC leader dashboard
+
+One CFC leader, created by the Follow Through coordinator. The CFC leader manages cohorts and participants. See [setup and guide](VBC_v4_10_CFC_LEADER_DASHBOARD.md). Requires migration 031 and CFC_PIN_SECRET.
+
+## v4.9 — Home Cell leader PIN login
+
+See [VBC_v4_9_HOME_CELL_LEADER_PINS.md](VBC_v4_9_HOME_CELL_LEADER_PINS.md). Apply migration 030 and configure HOME_CELL_PIN_SECRET before switching leaders to PIN login.
+
+## v4.8.1 — Login and account switching
+
+See [VBC_v4_8_1_LOGIN_AND_ACCOUNT_SWITCHING.md](VBC_v4_8_1_LOGIN_AND_ACCOUNT_SWITCHING.md).
+
 # Current release: v4.8
 
 See VBC_v4_8_FRIEND_DASHBOARD_ONLY.md. Friend accounts now remain in their dedicated dashboard.

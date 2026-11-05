@@ -37,6 +37,7 @@ const db = {
   },
 };
 globalThis.__route = {
+  saveLoginPreference: async () => {},
   authJSON: (b, s = 200) => Response.json(b, { status: s }),
   hasSameOrigin: (r) => r.headers.get("origin") === new URL(r.url).origin,
   readJson: (r) => r.json(),
@@ -73,7 +74,7 @@ let code = ts
   )
   .outputText.replace(/^import[\s\S]*?;/gm, "");
 code =
-  "const {authJSON,hasSameOrigin,readJson,PayloadError,adminDb,authRateLimit,loginIdentity,createClient,checkPin,validPin}=globalThis.__route;\n" +
+  "const {saveLoginPreference,authJSON,hasSameOrigin,readJson,PayloadError,adminDb,authRateLimit,loginIdentity,createClient,checkPin,validPin}=globalThis.__route;\n" +
   code;
 const temp = new URL("../.pin-route-test.mjs", import.meta.url);
 await writeFile(temp, code);

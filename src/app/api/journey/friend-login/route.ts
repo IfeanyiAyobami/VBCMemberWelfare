@@ -1,3 +1,4 @@
+import { saveLoginPreference } from "@/lib/auth/login-preference";
 import type { NextRequest } from "next/server";
 import { authJSON, hasSameOrigin } from "@/lib/auth/http";
 import { readJson, PayloadError } from "@/lib/reliability/json";
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
     });
     if (link.error || !link.data.properties?.hashed_token)
       throw Error("SESSION_UNAVAILABLE");
-    const client = await createClient();
+    const client = await createClient({ remember: b.remember === true });
     const signed = await client.auth.verifyOtp({
       type: "magiclink",
       token_hash: link.data.properties.hashed_token,
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       await client.auth.signOut({ scope: "local" });
       throw Error("SESSION_UNAVAILABLE");
     }
+    await saveLoginPreference(b.remember === true);
     return authJSON({ next: "/followups" });
   } catch (e) {
     return authJSON(

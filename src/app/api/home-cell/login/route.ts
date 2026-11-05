@@ -1,86 +1,101 @@
+import { passwordPOST } from "@/lib/home-cell/password-login";
 import { withRoute } from "@/lib/home-cell/route";
+import { saveLoginPreference } from "@/lib/auth/login-preference";
+import type { NextRequest } from "next/server";
+import { authJSON, hasSameOrigin } from "@/lib/auth/http";
 import { readJson, PayloadError } from "@/lib/reliability/json";
+import { adminDb } from "@/lib/home-cell/admin";
 import { authRateLimit } from "@/lib/home-cell/rate-limit";
 import { loginIdentity } from "@/lib/home-cell/identity";
-import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import {phoneUsernameUser} from "@/lib/home-cell/phone-usernames";
-import { actor, adminDb } from "@/lib/home-cell/admin";
-import { hasSameOrigin } from "@/lib/auth/http";
+import { checkPin, validPin } from "@/lib/home-cell/pin";
 export const dynamic = "force-dynamic";
 async function handlePOST(req: NextRequest) {
-  if (!hasSameOrigin(req))
-    return NextResponse.json({ message: "Invalid origin" }, { status: 403 });
+  if (!hasSameOrigin(req)) return authJSON({ message: "Invalid origin." }, 403);
   try {
-    const limited = await authRateLimit(req, "login");
-    if (limited) return limited;
-    const body = await readJson(req, 4096);
-    const email = body.identifier ?? body.email;
-    const password = body.password;
-    if (
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      email.length > 254 ||
-      password.length > 1024
-    )
-      return NextResponse.json(
-        { message: "Invalid credentials" },
-        { status: 400 },
-      );
-    const identity = loginIdentity(email);
-    if (!identity) return NextResponse.json({ message: "Enter a valid email or phone number" }, {status: 400});
-    const accountLimit = await authRateLimit(req, "login", identity.phone || identity.email!);
-    if (accountLimit) return accountLimit;
-    // Resolve the private phone username, then use ordinary email/password auth.
-    // Unknown phones still perform a password attempt and return the same message.
-    let loginEmail = identity.email;
-    if (identity.phone) {
-      const user = await phoneUsernameUser(adminDb(), identity.phone);
-      loginEmail = user?.email || "unknown@home-cell.invalid";
-    }
-    const client = await createClient();
-    const { data, error } = await client.auth.signInWithPassword({
-      email: loginEmail!,
-      password,
-    });
-    if (error && (error.status === 429 || (error.status ?? 0) >= 500 || error.name === 'AuthRetryableFetchError'))
-      return NextResponse.json({ message: 'Sign-in is temporarily unavailable. Please try again later.' }, { status: error.status === 429 ? 429 : 503 });
-    if (error || !data.user)
-      return NextResponse.json(
-        { message: "Invalid email, phone number or password" },
-        { status: 401 },
-      );
-    try {
-      await actor(true);
-    } catch (e) {
-      const code = e instanceof Error ? e.message : "ACCESS_CHECK_FAILED";
-      await client.auth.signOut({ scope: "local" });
-      return NextResponse.json(
+    const b = await readJson(req.clone(), 4096);
+    if (b.mode === "staff") return passwordPOST(req);
+    const limit = await authRateLimit(req, "login");
+    if (limit) return limit;
+    const identity =
+      typeof b.identifier === "string" && b.identifier.length <= 254
+        ? loginIdentity(b.identifier)
+        : null;
+    if (!identity || !validPin(b.pin))
+      return authJSON(
         {
           message:
-            code === "HCO_SERVER_NOT_CONFIGURED"
-              ? "Add SUPABASE_SERVICE_ROLE_KEY to the server environment and restart."
-              : code === "ACCESS_CHECK_FAILED"
-                ? "Unable to read leadership permissions. Check the service-role key, Supabase project and migrations."
-                : code === "SUSPENDED"
-                  ? "Your Home Cell account is suspended. Contact the church administrator."
-                  : "No active Home Cell Office access",
+            "Enter an email or phone number and exactly four PIN digits.",
         },
-        {
-          status: ["HCO_SERVER_NOT_CONFIGURED", "ACCESS_CHECK_FAILED"].includes(
-            code,
-          )
-            ? 503
-            : 403,
-        },
+        400,
       );
+    const secret = process.env.HOME_CELL_PIN_SECRET;
+    if (!secret || secret.length < 32)
+      return authJSON(
+        { message: "Home Cell leader sign-in is not configured." },
+        503,
+      );
+    const db = adminDb();
+    const a = await db.rpc("hco_leader_pin_attempt", {
+      p_identity: identity.email || identity.phone,
+    });
+    if (a.error) throw Error("PROTECTION_UNAVAILABLE");
+    const r = a.data;
+    const accepted = await checkPin(
+      b.pin,
+      r?.pin_hash || "0".repeat(32) + ":" + "0".repeat(128),
+      secret,
+    );
+    if (!accepted || !r?.user_id)
+      return authJSON(
+        {
+          message:
+            "Unable to sign in. Check your details or ask the administrator to reset your PIN if attempts are locked.",
+        },
+        401,
+      );
+    const allowed = await db.rpc("hco_leader_pin_complete", {
+      p_user: r.user_id,
+      p_version: r.version,
+    });
+    if (allowed.error || allowed.data !== true)
+      return authJSON(
+        {
+          message:
+            "Unable to sign in. Ask the administrator to check your Home Cell leader access.",
+        },
+        401,
+      );
+    const user = await db.auth.admin.getUserById(r.user_id);
+    if (user.error || !user.data.user?.email)
+      throw Error("ACCOUNT_UNAVAILABLE");
+    // Generate a server-only one-time token after successful PIN verification. No email is sent.
+    const link = await db.auth.admin.generateLink({
+      type: "magiclink",
+      email: user.data.user.email,
+    });
+    if (link.error || !link.data.properties?.hashed_token)
+      throw Error("SESSION_UNAVAILABLE");
+    const client = await createClient({ remember: b.remember === true });
+    const signed = await client.auth.verifyOtp({
+      type: "magiclink",
+      token_hash: link.data.properties.hashed_token,
+    });
+    if (signed.error || signed.data.user?.id !== r.user_id) {
+      await client.auth.signOut({ scope: "local" });
+      throw Error("SESSION_UNAVAILABLE");
     }
-    return NextResponse.json({ next: data.user.app_metadata?.hco_password_change_required === true ? "/home-cell/activate?temporary=1" : "/home-cell" });
-  } catch (error) {
-    if (error instanceof PayloadError) return NextResponse.json({ message: error.message }, { status: error.status });
-    return NextResponse.json(
-      { message: "Sign-in unavailable" },
-      { status: 503 },
+    await saveLoginPreference(b.remember === true);
+    return authJSON({ next: "/home-cell" });
+  } catch (e) {
+    return authJSON(
+      {
+        message:
+          e instanceof PayloadError
+            ? e.message
+            : "Home Cell leader sign-in is temporarily unavailable.",
+      },
+      e instanceof PayloadError ? e.status : 503,
     );
   }
 }

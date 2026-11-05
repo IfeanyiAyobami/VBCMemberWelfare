@@ -47,7 +47,12 @@ export default function StaffAccess({
         credentials: "same-origin",
         cache: "no-store",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, next }),
+        body: JSON.stringify({
+          email,
+          password,
+          next,
+          remember: form.get("remember") === "on",
+        }),
       });
       const result = await response.json();
       if (!response.ok) {
@@ -206,6 +211,13 @@ export default function StaffAccess({
                     </button>
                   </div>
                 </div>
+                <label className="login-remember">
+                  <input type="checkbox" name="remember" /> Keep me logged in on
+                  this device
+                </label>
+                <p className="login-remember-note">
+                  Leave unchecked on a shared device.
+                </p>
                 <button
                   className="btn primary w100"
                   type="submit"

@@ -5,6 +5,7 @@ let capability = { friend: true, coordinator: false, foundation: false },
   error = null;
 const JourneyDesk = () => null;
 globalThis.__shell = {
+  AccountSwitch: () => null,
   JourneyDesk,
   CareApp: () => null,
   MemberDesk: () => null,
@@ -40,7 +41,7 @@ let code = ts.transpileModule(
 ).outputText;
 code = code.replace(/^import(?!\s*\{ jsx)[\s\S]*?;/gm, "");
 code =
-  "const {JourneyDesk,CareApp,MemberDesk,StaffAccess,isCareRoute,isMemberId,getStaffSession,createClient,redirect,notFound}=globalThis.__shell;\n" +
+  "const {AccountSwitch,JourneyDesk,CareApp,MemberDesk,StaffAccess,isCareRoute,isMemberId,getStaffSession,createClient,redirect,notFound}=globalThis.__shell;\n" +
   code;
 const temp = new URL("../.friend-shell-test.mjs", import.meta.url);
 await writeFile(temp, code);
@@ -51,10 +52,9 @@ try {
   });
   assert.equal(result.type, JourneyDesk);
   assert.equal(result.props.friendOnly, true);
-  await assert.rejects(
-    () => Page({ params: Promise.resolve({ screen: ["overview"] }) }),
-    /REDIRECT \/followups/,
-  );
+  result = await Page({ params: Promise.resolve({ screen: ["overview"] }) });
+  assert.equal(result.type, globalThis.__shell.AccountSwitch);
+  assert.equal(result.props.userId, "fixture");
   capability = { friend: true, coordinator: true, foundation: false };
   result = await Page({ params: Promise.resolve({ screen: ["followups"] }) });
   assert.equal(result.props.friendOnly, false);
@@ -62,7 +62,7 @@ try {
   result = await Page({ params: Promise.resolve({ screen: ["followups"] }) });
   assert.notEqual(result.type, JourneyDesk);
   console.log(
-    "PASS server selects Friend-only shell from verified capabilities, redirects main-office routes, preserves Coordinator access and fails closed",
+    "PASS server selects Friend-only shell from verified capabilities, blocks main-office routes with account switching, preserves Coordinator access and fails closed",
   );
 } finally {
   await unlink(temp);
