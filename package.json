@@ -1,9 +1,9 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "private": true,
   "type": "module",
-  "description": "VBC Member Care v4.10 \u2014 Single CFC leader dashboard and cross-cohort completion",
+  "description": "VBC Member Care v4.11 — CFC team, enrolment, certificates and baptism",
   "engines": {
     "node": ">=22.14.0"
   },

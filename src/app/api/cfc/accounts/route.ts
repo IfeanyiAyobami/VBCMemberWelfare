@@ -104,6 +104,13 @@ export async function POST(req: NextRequest) {
       p_phone: phone,
       p_hash: await hashPin(pin, secret),
     });
+    if (
+      result.error?.code === "22023" &&
+      result.error.message === "Five active CFC accounts already exist."
+    ) {
+      if (created) await db.auth.admin.deleteUser(created);
+      return authJSON({ message: result.error.message }, 409);
+    }
     if (result.error || result.data !== true) throw Error("SAVE");
     created = undefined;
     return authJSON({
@@ -118,7 +125,7 @@ export async function POST(req: NextRequest) {
     return authJSON(
       {
         message:
-          "Account could not be confirmed. Check the account list before retrying; the contact may already have a CFC account. Check migration 031.",
+          "Account could not be confirmed. Check the account list before retrying; the contact may already have a CFC account. Check migrations 031 and 032.",
       },
       409,
     );

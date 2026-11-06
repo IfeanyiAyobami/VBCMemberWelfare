@@ -73,6 +73,7 @@ try {
     [10, "visitor"],
     [11, "visitor"],
     [12, "member"],
+    [13, "member"],
   ]) {
     await q(
       "insert into care_members(id,surname,other_names,status) values($1,$2,$3,$4)",
@@ -127,5 +128,47 @@ try {
  await db.exec('reset role');await q("update care_journey_policy set cfc_policy='All seven distinct classes and coordinator review' where id=1");
  await as(1);await call('approve',{member:id(12)});assert.ok((await snapshot()).people[0].completed_on);
  await call('suspend',{leader:id(3)});await as(3);await assert.rejects(snapshot(),/CFC access/);
+ await db.exec('reset role');
+ const migration = await readFile('supabase/032_cfc_team_certificates_baptism.sql','utf8');
+ await db.exec(migration);
+ await db.exec(migration);
+ await q("update care_members set phone='+2348012345678' where id=$1",[id(13)]);
+ await q("update care_preferences set contact_consent=true where member_id=$1",[id(13)]);
+ for(const n of [20,21,22,23,24,25]) await q("insert into auth.users(id) values($1)",[id(n)]);
+ const addAccount = n => q("select care_cfc_pin_save($1,$2,'Named leader',$3,null,$4)",[id(1),id(n),'leader'+n+'@test.invalid',hash]);
+ for(const n of [20,21,22,23,24]) await addAccount(n);
+ await assert.rejects(addAccount(25),/Five active/);
+ await addAccount(20);
+ await as(1);
+ await assert.rejects(call('reactivate',{leader:id(3)}),/Five active/);
+ await call('suspend',{leader:id(24)});
+ await call('reactivate',{leader:id(3)});
+ await as(20);
+ const found=(await q("select care_cfc_read('08012345678') as v"))[0].v;
+ assert.ok(found.candidates.some(x=>x.id===id(13)));
+ await call('enrol',{member:id(13),cohort:a});
+ await call('attendance',{member:id(13),session:makeup.id,status:'present'}).then(()=>assert.fail('Not enrolled in this cohort'),e=>assert.equal(e.code,'42501'));
+ await call('enrol',{member:id(13),cohort:b});
+ await call('attendance',{member:id(13),session:makeup.id,status:'present'});
+ await assert.rejects(call('certificate_issue',{member:id(13),kind:'cfc',number:'CFC-13'}),/completion/);
+ await call('baptism_register',{member:id(13)});
+ await call('baptism_schedule',{member:id(13),date:'2099-01-01'});
+ await assert.rejects(call('baptism_complete',{member:id(13),date:'2099-01-01'}),/valid baptism date/);
+ await call('baptism_complete',{member:id(13),date:'2026-04-01'});
+ await call('certificate_issue',{member:id(13),kind:'baptism',number:'BAP-13'});
+ await assert.rejects(call('certificate_collect',{member:id(13),kind:'baptism'}),/Mark the certificate ready/);
+ for(const [member,kind,number] of [[id(13),'baptism','BAP-13'],[id(12),'cfc','CFC-12']]){
+   if(kind==='cfc') await call('certificate_issue',{member,kind,number});
+   await call('certificate_ready',{member,kind});
+   await call('certificate_collect',{member,kind});
+ }
+ const saved=await snapshot();
+ assert.ok(saved.people.find(p=>p.id===id(12)).certificate_collected_on);
+ assert.equal(saved.people.find(p=>p.id===id(13)).completed_on,null);
+ assert.equal(saved.baptisms[0].certificate_collected_by,id(20));
+ await assert.rejects(q('select * from public.care_cfc_baptisms'),/permission denied/);
+ await db.exec('reset role');
+ assert.equal((await q("select official_joined_on from care_journeys where member_id=$1",[id(13)]))[0].official_joined_on,null);
+ console.log('PASS legacy membership without joining date, five named accounts and PIN reset at capacity, independent baptism, and certificate handover');
  console.log('PASS single leader, leader-owned cohorts/enrolment, cross-cohort Class 3 make-up, 7 distinct classes, retry deduplication, history, correction guards, review/approval, no full journey access, RLS and suspension');
 }finally{await db.close();}

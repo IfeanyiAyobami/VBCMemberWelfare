@@ -128,7 +128,7 @@ export default function CfcLeaderAccounts() {
             className="vj-primary"
             disabled={
               busy ||
-              items.some((x) => x.active) ||
+              items.filter((x) => x.active).length >= 5 ||
               !name.trim() ||
               (!email.trim() && !phone.trim())
             }
@@ -139,8 +139,8 @@ export default function CfcLeaderAccounts() {
         </>
       )}
       <p>
-        One active CFC leader for now. The leader creates cohorts and assigns
-        participants from their own dashboard.
+        Up to five active named CFC accounts. The CFC team creates cohorts and
+        assigns participants from their own dashboard.
       </p>
       <h4>CFC leader account</h4>
       {items.map((x) => (

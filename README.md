@@ -1,3 +1,5 @@
+Latest: [v4.11 CFC setup and workflows](VBC_v4_11_CFC_TEAM_AND_BAPTISM.md).
+
 ## v4.10 — CFC leader dashboard
 
 One CFC leader, created by the Follow Through coordinator. The CFC leader manages cohorts and participants. See [setup and guide](VBC_v4_10_CFC_LEADER_DASHBOARD.md). Requires migration 031 and CFC_PIN_SECRET.

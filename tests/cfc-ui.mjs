@@ -19,10 +19,11 @@ try{
  assert.equal(completedLessons(person).length,7);
  await act(async()=>{root.render(React.createElement(CfcDashboard,{initial:fixture}));});
  const button=text=>[...document.querySelectorAll('button')].find(b=>b.textContent.trim().endsWith(text));
- await act(async()=>button('Participants').click());assert.match(document.body.textContent,/7 of 7 distinct classes completed/);
+ await act(async()=>button('Participants').click());assert.ok(button('Add participant'));assert.match(document.body.textContent,/7 of 7 distinct classes completed/);
  await act(async()=>button('View progress').click());assert.match(document.body.textContent,/Attendance history/);assert.match(document.body.textContent,/Submit completion for review/);
  assert.ok(!button('Approve completion'));
- await act(async()=>button('Classes').click());assert.match(document.body.textContent,/Create cohort/);assert.match(document.body.textContent,/Enrol \/ arrange a make-up/);
+ await act(async()=>button('Classes').click());assert.match(document.body.textContent,/Create cohort/);assert.ok(button('Find attendance by participant'));
+ await act(async()=>button('Baptism').click());assert.ok(button('Register for baptism'));
  assert.equal(document.querySelector('a[href="/followups"]'),null);assert.equal(document.querySelector('a[href="/overview"]'),null);
  await act(async()=>button('Account').click());assert.ok(button('Log out'));
  console.log('PASS rendered CFC navigation, 7 distinct cross-cohort credits, leader-owned cohort/enrolment controls, coordinator-only approval and no full-dashboard links');

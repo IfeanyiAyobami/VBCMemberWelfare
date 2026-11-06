@@ -18,7 +18,20 @@ type Attendance = {
   cohort_id: string;
   cohort_name?: string;
 };
-type Person = {
+type Certificate = {
+  certificate_number?: string;
+  certificate_awarded_on?: string;
+  certificate_ready_on?: string;
+  certificate_collected_on?: string;
+  certificate_collected_by_name?: string;
+};
+type Baptism = Certificate & {
+  member_id: string;
+  name: string;
+  scheduled_on?: string;
+  baptised_on?: string;
+};
+type Person = Certificate & {
   id: string;
   name: string;
   phone?: string;
@@ -35,6 +48,7 @@ export type CfcData = {
   sessions: Session[];
   people: Person[];
   leaders: { user_id: string; name: string; active: boolean }[];
+  baptisms?: Baptism[];
   candidates: { id: string; name: string }[];
   teaching: { cohort_id: string; user_id: string }[];
 };
@@ -68,6 +82,11 @@ export default function CfcDashboard({
     [tab, setTab] = useState("Today"),
     [dark, setDark] = useState(true),
     [search, setSearch] = useState(""),
+    [adding, setAdding] = useState(false),
+    [memberSearch, setMemberSearch] = useState(""),
+    [matches, setMatches] = useState<CfcData["candidates"]>([]),
+    [lookupBusy, setLookupBusy] = useState(false),
+    [attendanceSearch, setAttendanceSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [cohort, setCohort] = useState(""),
     [session, setSession] = useState(""),
@@ -102,7 +121,7 @@ export default function CfcDashboard({
       });
       const d = await r.json();
       if (!r.ok) throw Error(d.message);
-      await load(search);
+      await load();
       setNotice("Saved successfully.");
       return true;
     } catch (e) {
@@ -124,15 +143,198 @@ export default function CfcDashboard({
         }}
       >
         {fields}
-        <button disabled={busy}>Save</button>
+        <button disabled={busy}>
+          {(
+            {
+              enrol: "Enrol participant",
+              baptism_register: "Register member",
+              baptism_schedule: "Save schedule",
+              baptism_complete: "Confirm baptism",
+              certificate_issue: "Record issue",
+              certificate_ready: "Mark ready",
+              certificate_collect: "Confirm collection",
+            } as Record<string, string>
+          )[action] || "Save"}
+        </button>
       </form>
+    );
+  }
+  function matchesPerson(
+    p: { name: string; phone?: string | null },
+    query: string,
+  ) {
+    const digits = query.replace(/\D/g, "").replace(/^0/, "");
+    return (
+      p.name.toLowerCase().includes(query.trim().toLowerCase()) ||
+      (/^[+0-9 ()-]+$/.test(query) &&
+        digits.length >= 3 &&
+        !!p.phone?.replace(/\D/g, "").includes(digits))
+    );
+  }
+  function memberLookup(action: "enrol" | "baptism_register") {
+    return (
+      <section className="cfc-card">
+        <p>
+          Choose an existing church member. A joining date is not required for
+          confirmed long-standing members.
+        </p>
+        <form
+          className="cfc-search"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setLookupBusy(true);
+            setError("");
+            setMatches([]);
+            try {
+              const r = await fetch(
+                "/api/cfc?search=" + encodeURIComponent(memberSearch.trim()),
+                { cache: "no-store" },
+              );
+              const result = await r.json();
+              if (!r.ok) throw Error(result.message);
+              setMatches(result.candidates);
+              if (!result.candidates.length)
+                setNotice("No confirmed members found.");
+            } catch (e) {
+              setError(
+                e instanceof Error ? e.message : "Member search failed.",
+              );
+            } finally {
+              setLookupBusy(false);
+            }
+          }}
+        >
+          <input
+            aria-label="Search church members"
+            placeholder="Name or phone number"
+            required
+            minLength={2}
+            maxLength={120}
+            value={memberSearch}
+            onChange={(e) => {
+              setMemberSearch(e.target.value);
+              setMatches([]);
+              setNotice("");
+            }}
+          />
+          <button disabled={lookupBusy}>
+            {lookupBusy ? "Searching…" : "Find member"}
+          </button>
+        </form>
+        {matches.length > 0 &&
+          form(
+            action,
+            <>
+              <label>
+                Member
+                <select name="member" required>
+                  <option value="">Choose member</option>
+                  {matches.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {action === "enrol" && (
+                <label>
+                  Cohort
+                  <select name="cohort" required defaultValue={cohort}>
+                    <option value="">Choose cohort</option>
+                    {cohortOptions()}
+                  </select>
+                </label>
+              )}
+            </>,
+          )}
+      </section>
+    );
+  }
+  function certificate(
+    p: Certificate,
+    id: string,
+    kind: "cfc" | "baptism",
+    milestone?: string,
+  ) {
+    const action = !p.certificate_number
+      ? "certificate_issue"
+      : !p.certificate_ready_on
+        ? "certificate_ready"
+        : "certificate_collect";
+    return (
+      <section className="cfc-card">
+        <h3>{kind === "cfc" ? "CFC certificate" : "Baptism certificate"}</h3>
+        {!milestone ? (
+          <p>
+            Record{" "}
+            {kind === "cfc" ? "approved CFC completion" : "actual baptism"}{" "}
+            first.
+          </p>
+        ) : (
+          <>
+            <p>
+              {p.certificate_collected_on
+                ? "Collected"
+                : p.certificate_ready_on
+                  ? "Ready for collection"
+                  : p.certificate_number
+                    ? "Issued"
+                    : "Not issued"}
+              {p.certificate_number && " · " + p.certificate_number}
+            </p>
+            {p.certificate_awarded_on && (
+              <p>Issued: {labelDate(p.certificate_awarded_on)}</p>
+            )}
+            {p.certificate_collected_on ? (
+              <p>
+                Collected {labelDate(p.certificate_collected_on)}
+                {p.certificate_collected_by_name &&
+                  " · handed over by " + p.certificate_collected_by_name}
+              </p>
+            ) : (
+              form(
+                action,
+                <>
+                  <input type="hidden" name="member" value={id} />
+                  <input type="hidden" name="kind" value={kind} />
+                  {action === "certificate_issue" && (
+                    <label>
+                      Certificate number
+                      <input name="number" required maxLength={100} />
+                    </label>
+                  )}
+                  <label>
+                    {action === "certificate_issue"
+                      ? "Issue date"
+                      : action === "certificate_ready"
+                        ? "Ready for collection date"
+                        : "Collection date"}
+                    <input
+                      type="date"
+                      name="date"
+                      required
+                      defaultValue={today()}
+                      min={
+                        p.certificate_ready_on ||
+                        p.certificate_awarded_on ||
+                        milestone
+                      }
+                      max={today()}
+                    />
+                  </label>
+                </>,
+              )
+            )}
+          </>
+        )}
+      </section>
     );
   }
   const current = data?.people.find((p) => p.id === person?.id) || person;
   const visiblePeople = (data?.people || []).filter(
     (p) =>
       (!cohort || p.cohorts.includes(cohort)) &&
-      p.name.toLowerCase().includes(search.toLowerCase()) &&
+      matchesPerson(p, search) &&
       (filter === "all" ||
         (filter === "complete"
           ? completedLessons(p).length === 7
@@ -273,7 +475,7 @@ export default function CfcDashboard({
           <p>Loading your CFC classes…</p>
         ) : (
           <>
-            {tab !== "Account" && (
+            {tab !== "Account" && tab !== "Baptism" && (
               <label className="cfc-select">
                 Cohort
                 <select
@@ -367,7 +569,8 @@ export default function CfcDashboard({
                   ))}
                 {!data.people.length && (
                   <p className="cfc-card">
-                    No participants enrolled yet. Create a cohort under Classes, then enrol participants.
+                    No participants enrolled yet. Create a cohort under Classes,
+                    then enrol participants.
                   </p>
                 )}
                 <button
@@ -380,21 +583,22 @@ export default function CfcDashboard({
             )}
             {tab === "Participants" && (
               <>
-                <form
-                  className="cfc-search"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    void load(search).catch((e) => setError(e.message));
-                  }}
+                <button
+                  className="cfc-primary"
+                  onClick={() => setAdding(!adding)}
+                  aria-expanded={adding}
                 >
+                  {adding ? "Close enrolment" : "Add participant"}
+                </button>
+                {adding && memberLookup("enrol")}
+                <label>
+                  Search participants
                   <input
-                    aria-label="Search participants"
-                    placeholder="Search by name"
+                    placeholder="Name or phone number"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
-                  <button>Search</button>
-                </form>
+                </label>
                 <div className="cfc-pills">
                   {[
                     ["all", "All"],
@@ -492,6 +696,12 @@ export default function CfcDashboard({
                         {a.cohort_name || "Earlier cohort"}
                       </p>
                     ))}
+                    {certificate(
+                      current,
+                      current.id,
+                      "cfc",
+                      current.completed_on,
+                    )}
                     {!current.completed_on &&
                       completedLessons(current).length === 7 && (
                         <>
@@ -524,6 +734,20 @@ export default function CfcDashboard({
             )}
             {tab === "Classes" && (
               <>
+                <h2>Attendance by cohort</h2>
+                <p>
+                  Choose a cohort above, then select a session to take
+                  attendance.
+                </p>
+                <button
+                  className="cfc-secondary"
+                  onClick={() => {
+                    setCohort("");
+                    setTab("Participants");
+                  }}
+                >
+                  Find attendance by participant
+                </button>
                 <label className="cfc-select">
                   Select a class
                   <select
@@ -559,9 +783,19 @@ export default function CfcDashboard({
                         maxLength={1000}
                       />
                     </label>
+                    <label>
+                      Find participant in this session
+                      <input
+                        value={attendanceSearch}
+                        onChange={(e) => setAttendanceSearch(e.target.value)}
+                        placeholder="Name or phone number"
+                      />
+                    </label>
                     {data.people
-                      .filter((p) =>
-                        p.cohorts.includes(selectedSession.cohort_id),
+                      .filter(
+                        (p) =>
+                          p.cohorts.includes(selectedSession.cohort_id) &&
+                          matchesPerson(p, attendanceSearch),
                       )
                       .map((p) => (
                         <div className="cfc-attendance-row" key={p.id}>
@@ -650,47 +884,95 @@ export default function CfcDashboard({
                         </label>
                       </>,
                     )}
-                    <h2>Enrol / arrange a make-up</h2>
-                    <form
-                      className="cfc-search"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void load(search).catch((e) => setError(e.message));
+                    <button
+                      className="cfc-secondary"
+                      onClick={() => {
+                        setTab("Participants");
+                        setAdding(true);
                       }}
                     >
-                      <input
-                        aria-label="Search members to enrol"
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Search officially joined member"
-                      />
-                      <button>Find</button>
-                    </form>
-                    {form(
-                      "enrol",
-                      <>
-                        <label>
-                          Participant
-                          <select name="member" required>
-                            <option value="">Search and choose a member</option>
-                            {data.candidates.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                        <label>
-                          Cohort
-                          <select name="cohort" required>
-                            <option value="">Choose cohort</option>
-                            {cohortOptions()}
-                          </select>
-                        </label>
-                      </>,
-                    )}
+                      Add participant or arrange a make-up
+                    </button>
                   </>
                 )}
+              </>
+            )}
+            {tab === "Baptism" && (
+              <>
+                <p>Register water baptism separately from CFC completion.</p>
+                <button
+                  className="cfc-primary"
+                  aria-expanded={adding}
+                  onClick={() => setAdding(!adding)}
+                >
+                  {adding ? "Close registration" : "Register for baptism"}
+                </button>
+                {adding && memberLookup("baptism_register")}
+                <label>
+                  Search baptism register
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search by name"
+                  />
+                </label>
+                {(data.baptisms || [])
+                  .filter((p) => matchesPerson(p, search))
+                  .map((p) => (
+                    <article className="cfc-card" key={p.member_id}>
+                      <h2>{p.name}</h2>
+                      <p>
+                        {p.baptised_on
+                          ? "Baptised · " + labelDate(p.baptised_on)
+                          : p.scheduled_on
+                            ? "Scheduled · " + labelDate(p.scheduled_on)
+                            : "Registered"}
+                      </p>
+                      {!p.baptised_on && (
+                        <>
+                          {form(
+                            "baptism_schedule",
+                            <>
+                              <input
+                                type="hidden"
+                                name="member"
+                                value={p.member_id}
+                              />
+                              <label>
+                                Schedule baptism
+                                <input
+                                  type="date"
+                                  name="date"
+                                  required
+                                  min={today()}
+                                />
+                              </label>
+                            </>,
+                          )}
+                          {form(
+                            "baptism_complete",
+                            <>
+                              <input
+                                type="hidden"
+                                name="member"
+                                value={p.member_id}
+                              />
+                              <label>
+                                Actual baptism date
+                                <input
+                                  type="date"
+                                  name="date"
+                                  required
+                                  max={today()}
+                                />
+                              </label>
+                            </>,
+                          )}
+                        </>
+                      )}
+                      {certificate(p, p.member_id, "baptism", p.baptised_on)}
+                    </article>
+                  ))}
               </>
             )}
             {tab === "Account" && (
@@ -730,19 +1012,25 @@ export default function CfcDashboard({
         )}
       </div>
       <nav className="cfc-bottom" aria-label="CFC dashboard">
-        {["Today", "Participants", "Classes", "Account"].map((name, i) => (
-          <button
-            key={name}
-            aria-current={tab === name ? "page" : undefined}
-            onClick={() => {
-              setTab(name);
-              setPerson(null);
-            }}
-          >
-            <span aria-hidden="true">{["⌂", "♧", "▤", "○"][i]}</span>
-            {name}
-          </button>
-        ))}
+        {["Today", "Participants", "Classes", "Baptism", "Account"].map(
+          (name, i) => (
+            <button
+              key={name}
+              aria-current={tab === name ? "page" : undefined}
+              onClick={() => {
+                setTab(name);
+                setAdding(false);
+                setSearch("");
+                setMemberSearch("");
+                setMatches([]);
+                setPerson(null);
+              }}
+            >
+              <span aria-hidden="true">{["⌂", "♧", "▤", "◇", "○"][i]}</span>
+              {name}
+            </button>
+          ),
+        )}
       </nav>
     </main>
   );

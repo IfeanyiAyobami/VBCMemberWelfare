@@ -8,7 +8,7 @@ function failure(error: { code?: string; message?: string }) {
     {
       message: ["42501", "22023", "23505"].includes(error.code || "")
         ? error.message
-        : "CFC service unavailable. Check migration 031.",
+        : "CFC service unavailable. Check migrations 031 and 032.",
     },
     error.code === "42501"
       ? 403
