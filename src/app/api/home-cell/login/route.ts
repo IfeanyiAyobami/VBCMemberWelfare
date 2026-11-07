@@ -1,7 +1,7 @@
 import { passwordPOST } from "@/lib/home-cell/password-login";
 import { withRoute } from "@/lib/home-cell/route";
 import { saveLoginPreference } from "@/lib/auth/login-preference";
-import type { NextRequest } from "next/server";
+import { NextRequest } from "next/server";
 import { authJSON, hasSameOrigin } from "@/lib/auth/http";
 import { readJson, PayloadError } from "@/lib/reliability/json";
 import { adminDb } from "@/lib/home-cell/admin";
@@ -13,8 +13,17 @@ export const dynamic = "force-dynamic";
 async function handlePOST(req: NextRequest) {
   if (!hasSameOrigin(req)) return authJSON({ message: "Invalid origin." }, 403);
   try {
-    const b = await readJson(req.clone(), 4096);
-    if (b.mode === "staff") return passwordPOST(req);
+    // Read the body once. Reading a clone and abandoning the original left
+    // oversized requests hanging instead of answering 413 (fixed in v4.12).
+    const b = await readJson(req, 4096);
+    if (b.mode === "staff")
+      return passwordPOST(
+        new NextRequest(req.url, {
+          method: "POST",
+          headers: req.headers,
+          body: JSON.stringify(b),
+        }),
+      );
     const limit = await authRateLimit(req, "login");
     if (limit) return limit;
     const identity =

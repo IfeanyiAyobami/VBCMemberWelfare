@@ -65,6 +65,7 @@ export type Meeting = {
   status: string;
   version: number;
   submitted_at: string | null;
+  submitted_by?: string | null;
 };
 export type Attendance = {
   id: string;
@@ -127,6 +128,19 @@ export type WorkspaceData = {
   announcements: Announcement[];
   from: string;
   to: string;
+  // v4.12
+  userId?: string;
+  approvable?: string[];
+  reviewable?: string[];
+  roles?: RoleHolder[];
+};
+export type RoleHolder = {
+  user_id: string;
+  role: string;
+  area_id: string | null;
+  cell_id: string | null;
+  name: string;
+  phone: string;
 };
 export function attendanceRate(rows: Attendance[]) {
   return rows.length

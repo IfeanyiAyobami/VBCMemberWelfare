@@ -841,17 +841,17 @@ export default function LeadershipAccounts() {
               <section>
                 <div>
                   <h3>
-                    {selected.role === "cell_leader"
+                    {(selected.role === "cell_leader" || selected.role === "area_leader")
                       ? "Four-digit Home Cell PIN"
                       : "Temporary password"}
                   </h3>
                   <p>
-                    {selected.role === "cell_leader"
-                      ? "Generate a four-digit PIN for this leader. A replacement invalidates the previous PIN; Friend credentials stay unchanged. Only coordinators and church administrators can generate it."
+                    {(selected.role === "cell_leader" || selected.role === "area_leader")
+                      ? "Generate a four-digit PIN for this Cell or Area Leader. A replacement invalidates the previous PIN; Friend credentials stay unchanged. Only coordinators and church administrators can generate it."
                       : "Generate a replacement password if the previous one was lost. A personal password is required at sign-in."}
                   </p>
                 </div>
-                {selected.role === "cell_leader" ? (
+                {(selected.role === "cell_leader" || selected.role === "area_leader") ? (
                   <button
                     className="la-primary"
                     disabled={
@@ -870,7 +870,8 @@ export default function LeadershipAccounts() {
                   >
                     Generate / reset 4-digit PIN
                   </button>
-                ) : admin && selected.user_id !== actorId ? (
+                ) : null}
+                {selected.role === "cell_leader" ? null : admin && selected.user_id !== actorId ? (
                   <button
                     className="la-primary"
                     disabled={selected.suspended || selected.needsPhoneRepair}

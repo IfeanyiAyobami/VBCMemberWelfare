@@ -1,4 +1,8 @@
-Latest: [v4.11 CFC setup and workflows](VBC_v4_11_CFC_TEAM_AND_BAPTISM.md).
+# VBC Member Care v4.12
+
+See the [v4.12 release notes and setup](VBC_v4_12_SIMPLE_LEADER_SCREENS.md) and [mobile visual comparisons](docs/v4.12/qa/index.html). Apply `supabase/033_leader_app.sql` after migration 032 and before deploying.
+
+Previous release: [v4.11 CFC setup and workflows](VBC_v4_11_CFC_TEAM_AND_BAPTISM.md).
 
 ## v4.10 — CFC leader dashboard
 

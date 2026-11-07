@@ -17,6 +17,7 @@ import { runGatewayIntegration } from "./gateway-integration.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let rateMode = "allow";
+let leaderRoles = null; // v4.12: make the signed-in user a Cell/Area Leader on the server
 let ratePolicies = [];
 const users = new Map([
   [
@@ -156,6 +157,17 @@ const onboardingWrites = [],
   transferInbox = [];
 let existingLeaderWrites = [],
   inviteCalls = 0;
+const qaClassDate = new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Lagos",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+const cfcPreview = {
+  manager:false, canOrganize:true, name:"Grace",
+  cohorts:[{id:"old",name:"Earlier group",starts_on:"2026-01-01"},{id:"new",name:"November group",starts_on:"2026-02-01"}],
+  sessions:[{id:"cfc-preview",cohort_id:"new",lesson:3,held_on:qaClassDate,topic:"The Holy Spirit",venue:"Church annex"}],
+  people:[
+    ...["Adaeze Okafor","Chinedu Eze","Folake Adeyemi","Sarah Bello"].map((name,i)=>({id:"preview-"+i,name,cohorts:["new"],attendance:[]})),
+    {id:"preview-makeup",name:"Samuel Bankole",phone:"+2348035550161",cohorts:["old"],attendance:[1,2,3,4,5,6,7].map(lesson=>({session_id:"preview-old-"+lesson,lesson,date:"2026-01-03",cohort_id:"old",status:lesson===3?"absent":"present"}))},
+  ],
+  leaders:[], candidates:[], teaching:[], baptisms:[],
+};
 const mock = createServer(async (req, res) => {
   const url = new URL(req.url, "http://fixture.invalid");
   if (unavailable)
@@ -369,6 +381,8 @@ const mock = createServer(async (req, res) => {
       message: "Unexpected invitation for existing account",
     });
   }
+  if (url.pathname === "/rest/v1/rpc/care_cfc_read" && process.env.VBC_QA_STAGE === "C" && auth)
+    return json(res, 200, cfcPreview);
   if (url.pathname === "/rest/v1/rpc/hco_rate_limit") {
     let raw = "";
     for await (const chunk of req) raw += chunk;
@@ -494,6 +508,8 @@ const mock = createServer(async (req, res) => {
     url.searchParams.get("id") !== "eq.legacy-phone-assignment"
   ) {
     let rows = leadershipAssignments;
+    if (leaderRoles && url.searchParams.get("user_id")?.startsWith("eq."))
+      return json(res, 200, leaderRoles.map((r) => ({ ...r, user_id: url.searchParams.get("user_id").slice(3) })));
     if (url.searchParams.has("user_id")) {
       const id = url.searchParams.get("user_id").slice(3);
       rows = testNonAdmin
@@ -507,6 +523,13 @@ const mock = createServer(async (req, res) => {
           ]
         : rows.filter((x) => x.user_id === id);
     }
+    // Honour id=eq.<id> and single-object requests (.maybeSingle()).
+    const idFilter = url.searchParams.get("id");
+    if (idFilter?.startsWith("eq.")) rows = rows.filter((x) => x.id === idFilter.slice(3));
+    if (String(req.headers.accept || "").includes("vnd.pgrst.object"))
+      return rows.length
+        ? json(res, 200, rows[0])
+        : json(res, 406, { code: "PGRST116", message: "No rows" });
     return json(res, 200, rows);
   }
   if (
@@ -526,7 +549,7 @@ const mock = createServer(async (req, res) => {
     return json(
       res,
       200,
-      testNonAdmin ? [] : [{ role: "administrator", is_active: true }],
+      testNonAdmin || leaderRoles ? [] : [{ role: "administrator", is_active: true }],
     );
   if (url.pathname === "/rest/v1/care_staff") {
     if (!auth) return json(res, 401, { message: "No access" });
@@ -1132,6 +1155,43 @@ try {
       },
     }),
   );
+  // Opt-in visual QA; never uses live church data.
+  const qaDir = process.env.VBC_QA_DIR;
+  const qaStage = process.env.VBC_QA_STAGE || "A";
+  const shot = async (name, sizes = [[390,844],[834,1112],[1440,900]]) => {
+    if (!qaDir || qaStage !== (name.startsWith("01-") ? "B" : name.includes("-cfc-") ? "C" : "A")) return;
+    fs.mkdirSync(qaDir, { recursive: true });
+    const size = page.viewportSize();
+    const dark = await page.locator(".lx-app.lx-dark").count();
+    const savedTheme = await page.evaluate(() => localStorage.getItem("hco-reference-theme"));
+    for (const theme of ["light", "dark"]) {
+      const toggle = page.getByRole("button", { name: "Switch to " + theme + " mode" });
+      if (await toggle.count()) await toggle.first().click();
+      else await page.locator(".lx-app").evaluate((e,d)=>e.classList.toggle("lx-dark",d),theme==="dark");
+      for (const [width,height] of sizes) {
+        await page.setViewportSize({width,height});
+        await page.evaluate(async () => { await document.fonts.ready; window.scrollTo(0,0); });
+        const metrics = await page.evaluate(() => {
+          const visible = (e) => !!e.getClientRects().length && getComputedStyle(e).visibility !== "hidden";
+          const size = (e) => parseFloat(getComputedStyle(e).fontSize);
+          return {
+            overflow: document.documentElement.scrollWidth > innerWidth + 1,
+            tiny: [...document.querySelectorAll(".lx-app *")].filter(e => visible(e) && !e.closest("svg,.lx-sr,[aria-hidden=true]") && [...e.childNodes].some(n => n.nodeType===3 && n.textContent.trim()) && size(e)<12).map(e=>e.textContent.trim()),
+            short: [...document.querySelectorAll(".lx-app button,.lx-app a,.lx-app summary")].filter(e=>visible(e) && e.getBoundingClientRect().height<47.5).map(e=>e.textContent.trim()),
+            stickyBottom: Math.round(document.querySelector(".lx-stick")?.getBoundingClientRect().bottom ?? innerHeight),
+          };
+        });
+        fs.appendFileSync(qaDir+"/metrics.jsonl", JSON.stringify({name,theme,width,height,...metrics})+"\n");
+        await page.screenshot({path: qaDir+"/"+name+"-"+theme+"-"+width+".png",animations:"disabled"});
+      }
+    }
+    const resetTheme = page.getByRole("button", { name: "Switch to " + (dark ? "dark" : "light") + " mode" });
+    if (await resetTheme.count()) await resetTheme.first().click();
+    else await page.locator(".lx-app").evaluate((e,d)=>e.classList.toggle("lx-dark",d),!!dark);
+    await page.evaluate(value => value === null ? localStorage.removeItem("hco-reference-theme") : localStorage.setItem("hco-reference-theme",value), savedTheme);
+    await page.setViewportSize(size);
+    await page.evaluate(() => window.scrollTo(0,0));
+  };
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.goto(origin + "/home-cell/login");
@@ -1148,6 +1208,31 @@ try {
   }
   assert(await page.locator("#hcl-email").isVisible());
   assert(await page.locator("#hcl-password").isVisible());
+  for (const [path, endpoint, name] of [
+    ["/home-cell/login", "/api/home-cell/login", "home-cell"],
+    ["/cfc-login", "/api/cfc/login", "cfc"],
+    ["/friend-login", "/api/journey/friend-login", "friend"],
+  ]) {
+    await page.goto(origin + path);
+    const pin = page.getByLabel("4-digit PIN", { exact: true });
+    await page.locator("#hcl-email").fill("08035550161");
+    await pin.fill("0481");
+    await page.getByLabel("Keep me signed in on this phone").check();
+    await page.getByRole("button", { name: "Show PIN" }).click();
+    assert.equal(await pin.getAttribute("type"), "text");
+    await shot("01-login-" + name, [[390,844]]);
+    await page.getByRole("button", { name: "Hide PIN" }).click();
+    const reject = (route) => route.fulfill({ status:401, json:{message:"PIN not accepted."} });
+    await page.route("**" + endpoint, reject);
+    const sent = page.waitForRequest(req => new URL(req.url()).pathname === endpoint && req.method() === "POST");
+    await page.getByRole("button", {name:"Sign in", exact:true}).click();
+    assert.deepEqual((await sent).postDataJSON(), { identifier:"08035550161", pin:"0481", remember:true });
+    await page.getByRole("alert").filter({hasText:"PIN not accepted."}).waitFor();
+    assert.equal(await pin.inputValue(), "0481");
+    assert(await page.getByLabel("Keep me signed in on this phone").isChecked());
+    await page.unroute("**" + endpoint, reject);
+  }
+  console.log("PASS shared PIN sign-in across three roles retains PIN and remember choice after 401");
   const authResponse = await login();
   assert.equal(authResponse.status, 200);
   await context.addCookies(
@@ -1159,6 +1244,19 @@ try {
       sameSite: "Lax",
     })),
   );
+  if (qaDir && qaStage === "C") {
+    await page.goto(origin + "/cfc");
+    const nextClass = page.getByRole("button",{name:"Take attendance"});
+    await nextClass.waitFor();
+    await shot("19-cfc-home",[[390,844]]);
+    await nextClass.click();
+    await page.getByRole("button",{name:"Everyone came"}).click();
+    await page.getByRole("group",{name:"Attendance for Folake Adeyemi"}).getByRole("button",{name:"Absent"}).click();
+    await shot("20-cfc-attendance",[[390,844]]);
+    await page.getByRole("button",{name:"‹ Classes",exact:true}).click();
+    await page.getByRole("button",{name:/Samuel Bankole.*Missed/}).click();
+    await shot("21-cfc-person",[[390,844]]);
+  }
   await runJourneyBrowser(page,origin);
   await runWhatsAppBrowser(page,origin);
   await runFriendModeBrowser(page,origin);
@@ -1399,6 +1497,208 @@ try {
       console.log("PASS cell leader: one-cell header, member tools behind one button, no Coordinator panels or audit errors");
     }
   }
+  // ---------------- v4.12 simple leader app ----------------
+  {
+    const lagos = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d);
+    const shift = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    const today = lagos(new Date());
+    let sunday = today; while (new Date(sunday + "T12:00:00Z").getUTCDay() !== 0) sunday = shift(sunday, -1);
+    const me = "11111111-1111-4111-8111-111111111111";
+    const people = [1, 2, 3].map((n) => ({ id: uid(700 + n), other_names: ["Ada", "Bayo", "Chika"][n - 1], surname: "Fixture", phone: "+23480155501" + (10 + n), email: null, status: "member" }));
+    const cellB = { ...cell, id: uid(720), name: "Bodija North" };
+    const writes = [];
+    let lf;
+    const reset = (roles, extra = {}) => {
+      leaderRoles = roles.map((r, i) => ({ id: uid(760 + i), active: true, area_id: null, cell_id: null, ...r }));
+      lf = {
+        userId: me, email: "leader@example.test", churchAdmin: false, manager: roles.some((r) => r.role !== "cell_leader"),
+        assignments: leaderRoles, scope: "", areas: [area], cells: [cell, cellB],
+        memberships: [...people.map((p, i) => ({ id: uid(730 + i), cell_id: cell.id, member_id: p.id, care_members: p })),
+          { id: uid(739), cell_id: cellB.id, member_id: uid(799), care_members: { id: uid(799), other_names: "Dele", surname: "Other", phone: null, email: null, status: "member" } }],
+        meetings: [], attendance: [], finances: [], visits: [], corrections: [], announcements: [],
+        approvable: [], reviewable: [],
+        roles: [
+          { user_id: uid(790), role: "coordinator", area_id: area.id, cell_id: null, name: "Olumide Coordinator", phone: "+2348035550000" },
+          { user_id: uid(791), role: "cell_leader", area_id: null, cell_id: cellB.id, name: "Grace Ojo", phone: "+2348035550001" },
+          ...(roles.some((r) => r.role === "cell_leader") ? [{ user_id: me, role: "cell_leader", area_id: null, cell_id: cell.id, name: "Tunde Leader", phone: "" }] : []),
+        ],
+        from: shift(today, -63), to: shift(today, 8), ...extra,
+      };
+    };
+    let seq = 0;
+    const meetingFor = (id) => lf.meetings.find((m) => m.id === id);
+    await page.unroute("**/api/home-cell/workspace?*");
+    await page.route("**/api/home-cell/workspace**", async (route) => {
+      const req = route.request();
+      if (req.method() === "GET") return route.fulfill({ json: lf });
+      const b = JSON.parse(req.postData() || "{}");
+      writes.push(b);
+      let result = null;
+      if (b.action === "meeting") {
+        result = { id: uid(800 + ++seq), cell_id: b.cell_id, meeting_date: b.meeting_date, starts_at: "18:00", ends_at: "19:00", notes: null, status: "draft", version: 1, submitted_at: null };
+        lf.meetings.push(result);
+      } else if (b.action === "no_meeting") {
+        result = { id: uid(800 + ++seq), cell_id: b.cell_id, meeting_date: b.meeting_date, starts_at: "18:00", ends_at: "19:00", notes: null, status: "no_meeting", version: 1, submitted_at: new Date().toISOString(), submitted_by: me };
+        lf.meetings.push(result);
+      } else {
+        const m = meetingFor(b.meeting_id);
+        if (b.version !== undefined && m && b.version !== m.version) return route.fulfill({ status: 409, json: { message: "HCO_STALE_REPORT_REFRESH_FIRST" } });
+        if (b.action === "attendance") {
+          lf.attendance = lf.attendance.filter((a) => a.meeting_id !== m.id).concat(b.rows.map((r, i) => ({ id: uid(900 + seq * 10 + i), meeting_id: m.id, member_id: r.member_id || null, visitor_name: r.visit_id ? "visit:" + r.visit_id : null, status: r.status })));
+          m.notes = b.notes; m.version++;
+        } else if (b.action === "finance") {
+          lf.finances.push({ id: uid(950 + ++seq), meeting_id: m.id, kind: b.kind, amount: b.amount, description: b.description, created_at: today, voided_at: null, void_reason: null });
+          m.version++;
+        } else if (b.action === "visitor") {
+          lf.visits.push({ id: uid(980 + ++seq), cell_id: b.cell_id, meeting_id: b.meeting_id, member_id: null, guest_submission_id: b.guest_submission_id || null, visited_at: today, followup_status: "pending", notes: null, care_members: null, care_guest_submissions: { id: "g1", other_names: "Temitope", surname: "Akande", phone: "+2348035550161", email: null, status: "guest" } });
+        } else if (b.action === "submit") { m.status = "submitted"; m.version++; }
+        else if (b.action === "approve") { m.status = "approved"; m.version++; lf.approvable = []; lf.reviewable = []; }
+        else if (b.action === "correction") { m.status = "correction_requested"; m.version++; lf.corrections.push({ id: "c1", meeting_id: m.id, reason: b.reason, status: "open", requested_at: new Date().toISOString() }); lf.approvable = []; lf.reviewable = []; }
+        result = m;
+      }
+      return route.fulfill({ json: { ok: true, result } });
+    });
+    await page.route("**/api/home-cell/people?*", (route) =>
+      route.fulfill({ json: { members: [], guests: [{ id: "g1", other_names: "Temitope", surname: "Akande", phone: "+2348035550161", email: null }] } }));
+    await page.setViewportSize({ width: 390, height: 844 });
+    const noOverflow = async (label) => assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), label + " fits a phone");
+
+    // ---- Cell Leader: any order, visitor reuse, send ----
+    reset([{ role: "cell_leader", cell_id: cell.id }]);
+    await page.goto(origin + "/home-cell");
+    await page.getByRole("heading", { name: "THIS WEEK", exact: true }).waitFor();
+    assert(await page.getByRole("button", { name: /Check and send/ }).isDisabled(), "Send waits for attendance");
+    await noOverflow("This week");
+    await shot("02-cl-week");
+    await page.getByRole("button", { name: /^Offering/ }).click();
+    await page.getByLabel("Amount in naira").fill("4500");
+    await shot("06-cl-offering");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: /^Offering.*₦4,500/ }).waitFor();
+    await page.getByRole("button", { name: /^Attendance/ }).click();
+    await page.getByRole("button", { name: "Everyone came" }).click();
+    await page.getByRole("radiogroup", { name: "Chika Fixture" }).getByRole("radio", { name: "Absent" }).click();
+    await page.getByText("2 came · 0 late · 1 absent", { exact: false }).waitFor().catch(() => {});
+    await shot("03-cl-attendance");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await page.getByRole("button", { name: /^Attendance.*2 came · 1 absent/ }).waitFor();
+    await page.getByRole("button", { name: /^Visitors/ }).click();
+    await shot("04-cl-visitors");
+    await page.getByRole("button", { name: /Yes, add a visitor/ }).click();
+    await page.getByLabel("First name").fill("Temitope");
+    await page.getByLabel("Surname").fill("Akande");
+    await page.getByLabel("Phone number").fill("0803 555 0161");
+    await page.getByLabel("Surname").click();
+    await page.getByText("Already in our records:").waitFor();
+    await shot("05-cl-visitor-form");
+    await page.getByRole("button", { name: "Use this person" }).click();
+    await page.getByText("Added so far:").waitFor();
+    await page.getByRole("button", { name: /No visitors this time/ }).click();
+    await page.getByRole("button", { name: /^Visitors.*Temitope Akande/ }).waitFor();
+    await page.getByRole("button", { name: /Check and send/ }).click();
+    await page.getByText("₦4,500").first().waitFor();
+    await shot("08-cl-send");
+    await page.getByRole("button", { name: /Send for approval/ }).click();
+    await page.getByRole("heading", { name: "SENT. THANK YOU!" }).waitFor();
+    await shot("10-cl-sent");
+    const order = writes.map((w) => w.action);
+    assert.deepEqual(order.slice(0, 2), ["meeting", "finance"], "First item opened creates this week's meeting: " + order);
+    assert(order.includes("attendance") && order.includes("visitor") && order.at(-1) === "submit", "Saved in any order, then sent: " + order);
+    assert.equal(writes.find((w) => w.action === "meeting").meeting_date, sunday, "Meeting dated to the cell's last meeting day");
+    assert.equal(writes.find((w) => w.action === "visitor").guest_submission_id, "g1", "Existing record reused, no duplicate");
+    console.log("PASS leader app: Cell Leader fills items in any order, reuses a known visitor, checks and sends");
+
+    if (qaDir) {
+      await page.getByRole("button",{name:"My people",exact:true}).click();
+      await shot("11-cl-people");
+      reset([{ role: "cell_leader", cell_id: cell.id }]);
+      await page.goto(origin + "/home-cell");
+      await page.getByRole("button",{name:/^Dues/}).click();
+      await shot("07-cl-dues");
+      await page.getByRole("button",{name:/^This week/}).first().click();
+      await page.getByRole("button",{name:/^Expenses/}).click();
+      await shot("cl-expenses");
+    }
+
+    // ---- No meeting ----
+    reset([{ role: "cell_leader", cell_id: cell.id }]);
+    writes.length = 0;
+    await page.goto(origin + "/home-cell");
+    await page.getByRole("button", { name: /No meeting on Sunday/ }).click();
+    await shot("09-cl-nomeeting");
+    await page.getByRole("button", { name: /Tell my Coordinator/ }).click();
+    await page.getByRole("heading", { name: "DONE. THANK YOU!" }).waitFor();
+    assert.equal(writes[0].action, "no_meeting");
+    assert.equal(writes[0].meeting_date, sunday);
+    await page.getByRole("button", { name: "Back to This week" }).click();
+    await page.getByText("No meeting this week.").waitFor();
+    await page.getByRole("button", { name: /Switch to dark mode/ }).click();
+    assert(await page.locator(".lx-app.lx-dark").count(), "Dark mode switch");
+    await page.getByRole("button", { name: /Switch to light mode/ }).click();
+    await page.getByRole("button", { name: "Help" }).click();
+    await shot("12-help");
+    assert.equal(await page.getByRole("link", { name: "Call" }).first().getAttribute("href"), "tel:+2348035550000", "Call your Coordinator uses the saved phone");
+    console.log("PASS leader app: No meeting in one tap, dark mode, Call your Coordinator");
+
+    // ---- Area Leader: approve and send back ----
+    const submitted = (id, c) => ({ id, cell_id: c, meeting_date: sunday, starts_at: "18:00", ends_at: "19:00", notes: "Prayer for Kemi", status: "submitted", version: 3, submitted_at: new Date().toISOString(), submitted_by: uid(791) });
+    reset([{ role: "area_leader", area_id: area.id }], {});
+    lf.meetings = [submitted(uid(850), cellB.id)];
+    lf.attendance = [{ id: uid(851), meeting_id: uid(850), member_id: uid(799), visitor_name: null, status: "present" }];
+    lf.approvable = [uid(850)]; lf.reviewable = [uid(850)];
+    writes.length = 0;
+    await page.goto(origin + "/home-cell");
+    if (qaDir) {
+      await page.getByRole("button", {name:/Review 1 report/}).waitFor();
+      await shot("13-al-week");
+      await page.getByRole("button", {name:"Cells",exact:true}).click();
+      await shot("17-al-cells");
+      await page.getByRole("button", {name:"This week",exact:true}).click();
+    }
+    await page.getByRole("button", { name: /Review 1 report/ }).click();
+    await page.getByRole("heading", { name: "BODIJA NORTH" }).waitFor();
+    await shot("14-al-review");
+    await page.getByRole("button", { name: /Approve/ }).click();
+    await page.getByRole("heading", { name: "APPROVED" }).waitFor();
+    await shot("16-al-approved");
+    assert.equal(writes[0].action, "approve");
+    await noOverflow("Approved");
+    reset([{ role: "area_leader", area_id: area.id }]);
+    lf.meetings = [submitted(uid(860), cellB.id)];
+    lf.attendance = [{ id: uid(861), meeting_id: uid(860), member_id: uid(799), visitor_name: null, status: "present" }];
+    lf.approvable = [uid(860)]; lf.reviewable = [uid(860)];
+    writes.length = 0;
+    await page.goto(origin + "/home-cell");
+    await page.getByRole("button", { name: /Review 1 report/ }).click();
+    await page.getByRole("button", { name: /Send back/ }).click();
+    await page.getByLabel("What should Grace fix?").fill("Please add the dues");
+    await shot("15-al-sendback");
+    await page.getByRole("button", { name: /Send back to Grace/ }).click();
+    await page.getByRole("heading", { name: "THIS WEEK", exact: true }).waitFor();
+    assert.deepEqual([writes[0].action, writes[0].reason], ["correction", "Please add the dues"]);
+    console.log("PASS leader app: Area Leader reviews, approves, and sends back with a reason");
+
+    // ---- Both roles ----
+    reset([{ role: "cell_leader", cell_id: cell.id }, { role: "area_leader", area_id: area.id }]);
+    await page.goto(origin + "/home-cell");
+    await page.getByText("YOUR CELL · MOKOLA CENTRAL").waitFor();
+    await page.getByText(/YOUR AREA ·/).waitFor();
+    await page.getByText("Your own cell’s report goes to").waitFor();
+    await shot("18-al-both");
+    await page.getByRole("button", { name: /Open my cell’s week/ }).click();
+    await page.getByRole("heading", { name: "MY CELL" }).waitFor();
+    await noOverflow("Both roles");
+    await shot("dual-cell");
+    await page.goto(origin + "/home-cell?full=1");
+    await page.locator(".hc-app").waitFor();
+    console.log("PASS leader app: both roles on one home screen; full office still reachable");
+
+    leaderRoles = null;
+    await page.unroute("**/api/home-cell/workspace**");
+    await page.unroute("**/api/home-cell/people?*");
+    await page.route("**/api/home-cell/workspace?*", (route) => route.fulfill({ json: fixture }));
+    await page.setViewportSize({ width: 1440, height: 1000 });
+  }
   fixture.churchAdmin = true;
   fixture.manager = true;
   fixture.assignments = [];
@@ -1479,9 +1779,10 @@ try {
   await page
     .getByRole("button", { name: "Use existing account", exact: true })
     .click();
+  // v4.9+: Cell Leader assignments end with the "generate a PIN" reminder.
   await page
     .getByRole("status")
-    .filter({ hasText: "Leadership role added" })
+    .filter({ hasText: "Leadership saved" })
     .waitFor();
   assert.equal(existingLeaderWrites.length, 1);
   assert.equal(
@@ -1548,7 +1849,7 @@ try {
     .getByRole("button", { name: "Manage Known Leader", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "Password & access", exact: true })
+    .getByRole("button", { name: "Security & access", exact: true })
     .click();
   await page
     .getByRole("button", { name: "Generate replacement password", exact: true })
@@ -1824,9 +2125,10 @@ try {
     body: JSON.stringify({
       phone: "08031234567",
       full_name: "Phone leader",
-      role: "cell_leader",
+      // v4.9+: new Cell Leaders get a PIN, not a password. Area Leaders still get a
+      // temporary password during the v4.12 changeover, so this exercises the password path.
+      role: "area_leader",
       area_id: area.id,
-      cell_id: cell.id,
     }),
   });
   assert.equal(createdResponse.status, 200);
@@ -1870,6 +2172,7 @@ try {
   assert.equal(repairedAgain.status, 200);
   jar.clear();
   const legacyLogin = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "07037619850",
     password: legacy.password,
   });
@@ -1880,6 +2183,7 @@ try {
   );
   jar.clear();
   const signed = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "0803 123 4567",
     password: created.temporary_password,
   });
@@ -1898,6 +2202,7 @@ try {
   assert.equal(changed.status, 200);
   assert.equal((await request("/api/home-cell/leaders")).status, 200);
   const loginAgain = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "+2348031234567",
     password: "My-personal-password-987!",
   });
@@ -1906,6 +2211,7 @@ try {
   assert.equal(
     (
       await post("/api/home-cell/login", {
+        mode: "staff",
         identifier: "08031234567",
         password: created.temporary_password,
       })
@@ -1921,15 +2227,16 @@ try {
   const emailCreated = await post("/api/home-cell/leaders", {
     email: "new.leader@gmail.com",
     full_name: "Gmail Leader",
-    role: "cell_leader",
+    // v4.9+: Cell Leaders get PINs; Area Leaders still receive a temporary password.
+    role: "area_leader",
     area_id: area.id,
-    cell_id: cell.id,
   });
   assert.equal(emailCreated.status, 200);
   const gmail = await emailCreated.json();
   assert(gmail.temporary_password.length >= 24);
   assert.equal(gmail.login, "new.leader@gmail.com");
   const gmailSigned = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "new.leader@gmail.com",
     password: gmail.temporary_password,
   });
@@ -1992,6 +2299,7 @@ try {
   );
   rateMode = "deny";
   const denied = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "08031234567",
     password: "wrong",
   });
@@ -2008,6 +2316,7 @@ try {
   assert.equal(
     (
       await post("/api/home-cell/login", {
+        mode: "staff",
         identifier: "08031234567",
         password: "wrong",
       })
@@ -2016,6 +2325,7 @@ try {
   );
   rateMode = "allow";
   const oversized = await post("/api/home-cell/login", {
+    mode: "staff",
     identifier: "x".repeat(5000),
     password: "wrong",
   });

@@ -577,5 +577,63 @@ await db.query("update hco_access set suspended_at=now() where user_id=$1",[outs
 await assert.rejects(beginReset(admin,passwordAssignment,uid(402)),/TARGET_SUSPENDED/);ok(true,'Suspended leaders must be reactivated before password replacement');
 ok((await db.query("select has_function_privilege('authenticated','hco_password_begin(uuid,uuid,uuid,text)','EXECUTE') allowed")).rows[0].allowed===false,'Password reset RPC is inaccessible to direct authenticated clients');
 
+// ---- v4.12: leader app rules (migration 033) ----
+{
+  // The PIN part of 033 is covered by home-cell-pin-database.mjs (it needs Follow-up tables).
+  const full033 = fs.readFileSync(root + "/supabase/033_leader_app.sql", "utf8");
+  const sql033 = full033.slice(0, full033.indexOf("-- PIN sign-in")) + "commit;";
+  await db.exec(sql033);
+  await db.exec(sql033);
+  ok(true, "033 applies and reruns");
+  const lagos = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Lagos" }).format(d);
+  const today = lagos(new Date());
+  const shift = (iso, n) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+  let lastSunday = today; while (new Date(lastSunday + "T12:00:00Z").getUTCDay() !== 0) lastSunday = shift(lastSunday, -1);
+  const dual = uid(500), dualMember = uid(501);
+  await db.query(`insert into auth.users select $1::uuid`, [dual]);
+  const cellC = (await db.query(`insert into hco_cells(name,area_id) values('Cell C',$1) returning id`, [area])).rows[0].id;
+  await db.query(`insert into hco_assignments(user_id,role,area_id) values($1,'area_leader',$2)`, [dual, area]);
+  await db.query(`insert into hco_assignments(user_id,role,cell_id) values($1,'cell_leader',$2)`, [dual, cellC]);
+  await db.query(`insert into care_members(id,other_names,surname,phone) values($1,'Dual','Member','+2348022222222')`, [dualMember]);
+  await call(dual, "assign_member", { cell_id: cellC, member_id: dualMember });
+  const report = async (date) => {
+    let m = await call(dual, "meeting", { cell_id: cellC, meeting_date: date });
+    m = await call(dual, "attendance", { meeting_id: m.id, version: m.version, rows: [{ member_id: dualMember, status: "present" }] });
+    return call(dual, "submit", { meeting_id: m.id, version: m.version });
+  };
+  let own = await report(shift(lastSunday, -14));
+  await denied(dual, "approve", { meeting_id: own.id, version: own.version }, "Dual leader cannot approve own cell report");
+  await denied(dual, "correction", { meeting_id: own.id, version: own.version, reason: "Please fix totals" }, "Dual leader cannot send back own cell report");
+  await denied(coord, "approve", { meeting_id: own.id, version: own.version }, "Coordinator cannot approve while an independent Area Leader exists");
+  own = await call(reviewer, "approve", { meeting_id: own.id, version: own.version });
+  ok(own.status === "approved", "Independent Area Leader approves the dual leader's cell report");
+  await db.query(`update hco_assignments set active=false where user_id=$1 and role='area_leader'`, [reviewer]);
+  let own2 = await report(shift(lastSunday, -7));
+  own2 = await call(coord, "approve", { meeting_id: own2.id, version: own2.version });
+  ok(own2.status === "approved", "Coordinator approves when the area's only Area Leader leads that cell");
+  await db.query(`update hco_assignments set active=true where user_id=$1 and role='area_leader'`, [reviewer]);
+  // dual leader can approve another cell in the area
+  let a1 = await call(leader, "meeting", { cell_id: cell, meeting_date: shift(lastSunday, -21) });
+  a1 = await call(leader, "attendance", { meeting_id: a1.id, version: a1.version, rows: [{ member_id: member, status: "present" }] });
+  a1 = await call(leader, "submit", { meeting_id: a1.id, version: a1.version });
+  a1 = await call(dual, "approve", { meeting_id: a1.id, version: a1.version });
+  ok(a1.status === "approved", "Dual leader approves other cells in their area");
+  // No meeting
+  const upcoming = shift(today, 3);
+  await denied(reviewer, "no_meeting", { cell_id: cell, meeting_date: upcoming }, "Only the cell's leader can mark No meeting");
+  await denied(leader, "no_meeting", { cell_id: cell, meeting_date: shift(today, 9) }, "No meeting cannot be set more than a week ahead");
+  let nm = await call(leader, "no_meeting", { cell_id: cell, meeting_date: upcoming });
+  ok(nm.status === "no_meeting" && nm.submitted_by === leader, "Cell leader marks a week as No meeting");
+  const again = await call(leader, "no_meeting", { cell_id: cell, meeting_date: upcoming });
+  ok(again.id === nm.id, "Marking No meeting twice is harmless");
+  await denied(leader, "attendance", { meeting_id: nm.id, version: nm.version, rows: [{ member_id: member, status: "present" }] }, "A No meeting week is locked for attendance");
+  await denied(reviewer, "approve", { meeting_id: nm.id, version: nm.version }, "A No meeting week is not approved like a report");
+  await denied(leader, "no_meeting", { cell_id: cell, meeting_date: shift(lastSunday, -21) }, "Weeks that already have records cannot become No meeting");
+  await denied(reviewer, "undo_no_meeting", { meeting_id: nm.id, version: nm.version }, "Only the cell's leader can undo No meeting");
+  const undone = await call(leader, "undo_no_meeting", { meeting_id: nm.id, version: nm.version });
+  ok(undone.status === "undone" && !(await db.query("select 1 from hco_meetings where id=$1", [nm.id])).rows.length, "Cell leader undoes No meeting");
+  ok((await db.query("select count(*)::int n from hco_audit where action in ('workspace_no_meeting','workspace_undo_no_meeting')")).rows[0].n === 2, "No meeting changes are audited (a repeat changes nothing and logs nothing)");
+}
+
 console.log(JSON.stringify({ checks: count, passed: true }));
 await db.close();

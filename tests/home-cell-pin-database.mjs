@@ -12,6 +12,8 @@ create table hco_access(user_id uuid,suspended_at timestamptz);
 create table hco_phone_usernames(user_id uuid,phone text);
 create table hco_audit(actor_id uuid,target_user_id uuid,action text,details jsonb);`);
 await db.exec(readFileSync('supabase/030_home_cell_leader_pins.sql','utf8'));
+// v4.12 (033): PIN sign-in for Area Leaders too. The PIN part of 033 is self-contained.
+{const m033=readFileSync('supabase/033_leader_app.sql','utf8');await db.exec('begin;'+m033.slice(m033.indexOf('-- PIN sign-in'),m033.lastIndexOf('commit;'))+'commit;');}
 const id=n=>`00000000-0000-4000-8000-${String(n).padStart(12,'0')}`;
 const coordinator=id(1),leader=id(2),outsider=id(3),area=id(4),cell=id(5);
 await db.query(`insert into auth.users(id,email,raw_app_meta_data) values($1,'coordinator@test.invalid','{}'),($2,'leader@test.invalid','{"hco_password_change_required":true}'),($3,'outsider@test.invalid','{}')`,[coordinator,leader,outsider]);
@@ -37,7 +39,7 @@ await db.query("update hco_leader_pin_accounts set window_start=now()-interval '
 assert.deepEqual(await attempt(),{});
 await save();assert.equal((await attempt()).user_id,leader);
 await db.query(`insert into hco_assignments(user_id,role,area_id) values($1,'coordinator',$2)`,[leader,area]);
-assert.deepEqual(await attempt(),{});await assert.rejects(save(),/cell-leader-only/);
+assert.deepEqual(await attempt(),{});await assert.rejects(save(),/Cell Leader or Area Leader/);
 await db.query(`delete from hco_assignments where user_id=$1 and role='coordinator'`,[leader]);
 await db.query('insert into hco_access values($1,now())',[leader]);assert.deepEqual(await attempt(),{});
 await db.query('delete from hco_access');
@@ -45,4 +47,16 @@ await db.query(`insert into care_staff values($1,'administrator',true)`,[leader]
 assert.equal((await db.query(`select raw_app_meta_data ? 'hco_password_change_required' as v from auth.users where id=$1`,[leader])).rows[0].v,false);
 await db.exec('set role authenticated');await assert.rejects(db.exec('select * from public.hco_leader_pin_accounts'),/permission denied/);
 await assert.rejects(db.query('select hco_leader_pin_attempt($1)',['leader@test.invalid']),/permission denied/);
+await db.exec('reset role');await db.query('delete from care_staff');
+// Area Leader and dual-role accounts can use PINs; Coordinator scope covers area assignments.
+const arealead=id(10),dual=id(11),area2=id(12),coord2=id(13);
+await db.query(`insert into auth.users(id,email) values($1,'area@test.invalid'),($2,'dual@test.invalid'),($3,'coord2@test.invalid')`,[arealead,dual,coord2]);
+await db.query(`insert into hco_assignments(user_id,role,area_id,cell_id) values($1,'area_leader',$3,null),($2,'area_leader',$3,null),($2,'cell_leader',null,$4),($5,'coordinator',$6,null)`,[arealead,dual,area,cell,coord2,area2]);
+const saveFor=(user,actor=coordinator)=>db.query('select hco_leader_pin_save($1,$2,$3)',[actor,user,hash]);
+await saveFor(arealead);assert.equal((await attempt('area@test.invalid')).user_id,arealead);
+await saveFor(dual);assert.equal((await attempt('dual@test.invalid')).user_id,dual);
+await assert.rejects(saveFor(arealead,coord2),/Coordinator scope/);
+await db.query(`insert into hco_assignments(user_id,role,area_id) values($1,'coordinator',$2)`,[arealead,area]);
+assert.deepEqual(await attempt('area@test.invalid'),{});
+console.log('PASS 033: Area Leader and dual-role PINs, coordinator area scope, broader roles still excluded');
 await db.close();console.log('PASS migration 030, coordinator authority, phone lookup, rotation invalidation, five-attempt lock, suspension, higher-role exclusion, RLS and service-only functions');

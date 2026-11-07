@@ -225,7 +225,8 @@ export async function runV41Browser(page, origin) {
     .locator(".vj-sidebar")
     .getByRole("button", { name: "Foundation classes", exact: true })
     .click();
-  await page.getByRole("columnheader", { name: "W7", exact: true }).waitFor();
+  // v4.10+: Coordinators see the embedded CFC dashboard here (no W1–W7 table).
+  await page.locator(".cfc-embedded").waitFor();
   if (shots)
     await page.screenshot({
       path: shots + "/v41-cfc-desktop.png",

@@ -2348,17 +2348,21 @@ export default function HomeCellWorkspace({ section }: { section: Section }) {
                             </button>
                           )}
                         {data.manager &&
-                          selectedMeeting.status === "submitted" && (
+                          selectedMeeting.status === "submitted" &&
+                          (!data.reviewable ||
+                            data.reviewable.includes(selectedMeeting.id)) && (
                             <div className="hc-form-grid">
-                              {(data.churchAdmin ||
-                                data.assignments.some(
-                                  (a) =>
-                                    a.role === "area_leader" &&
-                                    a.area_id ===
-                                      data.cells.find(
-                                        (c) => c.id === selectedMeeting.cell_id,
-                                      )?.area_id,
-                                )) && (
+                              {(data.approvable
+                                ? data.approvable.includes(selectedMeeting.id)
+                                : data.churchAdmin ||
+                                  data.assignments.some(
+                                    (a) =>
+                                      a.role === "area_leader" &&
+                                      a.area_id ===
+                                        data.cells.find(
+                                          (c) => c.id === selectedMeeting.cell_id,
+                                        )?.area_id,
+                                  )) && (
                                 <button
                                   disabled={busy}
                                   onClick={() =>

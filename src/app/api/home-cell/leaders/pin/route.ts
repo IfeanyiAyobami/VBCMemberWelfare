@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       return authJSON(
         {
           message:
-            "PIN could not be generated. Apply migration 030 and check that this is an active cell leader within your area, with no higher dashboard roles.",
+            "PIN could not be generated. Apply migrations 030 and 033 and check that this is an active Cell Leader or Area Leader within your area, with no Coordinator or administrator roles.",
         },
         409,
       );

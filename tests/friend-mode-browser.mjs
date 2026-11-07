@@ -156,7 +156,8 @@ export async function runFriendModeBrowser(page, origin) {
     );
     await page.evaluate(() => localStorage.setItem("vbc-friend-mode", "off"));
     await page.goto(origin + "/followups#friends");
-    await page.getByRole("heading", { name: "TODAY", exact: true }).waitFor();
+    // The Friend app reopens on the tab last used; what matters is that it stays Friend-only.
+    await page.locator(".fm-tabs").waitFor();
     assert.equal(await page.locator(".vj-sidebar").count(), 0);
     assert.deepEqual(errors, []);
     console.log(
