@@ -613,7 +613,7 @@ ok((await db.query("select has_function_privilege('authenticated','hco_password_
   ok(own2.status === "approved", "Coordinator approves when the area's only Area Leader leads that cell");
   await db.query(`update hco_assignments set active=true where user_id=$1 and role='area_leader'`, [reviewer]);
   // dual leader can approve another cell in the area
-  let a1 = await call(leader, "meeting", { cell_id: cell, meeting_date: shift(lastSunday, -21) });
+  let a1 = await call(leader, "meeting", { cell_id: cell, meeting_date: shift(lastSunday, -210) });
   a1 = await call(leader, "attendance", { meeting_id: a1.id, version: a1.version, rows: [{ member_id: member, status: "present" }] });
   a1 = await call(leader, "submit", { meeting_id: a1.id, version: a1.version });
   a1 = await call(dual, "approve", { meeting_id: a1.id, version: a1.version });
@@ -628,7 +628,7 @@ ok((await db.query("select has_function_privilege('authenticated','hco_password_
   ok(again.id === nm.id, "Marking No meeting twice is harmless");
   await denied(leader, "attendance", { meeting_id: nm.id, version: nm.version, rows: [{ member_id: member, status: "present" }] }, "A No meeting week is locked for attendance");
   await denied(reviewer, "approve", { meeting_id: nm.id, version: nm.version }, "A No meeting week is not approved like a report");
-  await denied(leader, "no_meeting", { cell_id: cell, meeting_date: shift(lastSunday, -21) }, "Weeks that already have records cannot become No meeting");
+  await denied(leader, "no_meeting", { cell_id: cell, meeting_date: shift(lastSunday, -210) }, "Weeks that already have records cannot become No meeting");
   await denied(reviewer, "undo_no_meeting", { meeting_id: nm.id, version: nm.version }, "Only the cell's leader can undo No meeting");
   const undone = await call(leader, "undo_no_meeting", { meeting_id: nm.id, version: nm.version });
   ok(undone.status === "undone" && !(await db.query("select 1 from hco_meetings where id=$1", [nm.id])).rows.length, "Cell leader undoes No meeting");

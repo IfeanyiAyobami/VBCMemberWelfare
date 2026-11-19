@@ -112,6 +112,7 @@ export type Announcement = {
   created_at: string;
 };
 export type WorkspaceData = {
+  leaderLoginOnly?: boolean;
   email: string;
   churchAdmin: boolean;
   manager: boolean;

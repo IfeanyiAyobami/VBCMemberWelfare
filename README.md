@@ -1,3 +1,7 @@
+# VBC Member Care v4.13
+
+See [v4.13 setup and verification](VBC_v4_13_SEPARATE_LOGINS_AND_GLOBAL_COORDINATOR.md). Apply migrations 034 and 035, in order, after 033 and before deploying.
+
 # VBC Member Care v4.12
 
 See the [v4.12 release notes and setup](VBC_v4_12_SIMPLE_LEADER_SCREENS.md) and [mobile visual comparisons](docs/v4.12/qa/index.html). Apply `supabase/033_leader_app.sql` after migration 032 and before deploying.

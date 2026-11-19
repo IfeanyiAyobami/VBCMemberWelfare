@@ -15,3 +15,7 @@ PRIVATE_IMPORT/
 
 # Temporary transpiled route/UI test artifacts
 .*-test.mjs
+
+# Local visual scratch scripts
+.cfc-ui.mjs
+tests/.visual-friend.mjs

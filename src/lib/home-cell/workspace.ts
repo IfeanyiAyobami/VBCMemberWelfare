@@ -5,11 +5,13 @@ export async function workspaceScope(id: string | null) {
   const selected =
     id && id !== "all" ? a.assignments.find((x) => x.id === id) : null;
   if (id && id !== "all" && !selected) throw Error("FORBIDDEN");
-  if (id === "all" && !a.churchAdmin) throw Error("FORBIDDEN");
+  if (id === "all" && !a.churchAdmin && !a.coordinator)
+    throw Error("FORBIDDEN");
   const assignments = selected ? [selected] : a.assignments;
   const global =
-    (a.churchAdmin && (!id || id === "all")) ||
-    selected?.role === "church_admin";
+    ((a.churchAdmin || a.coordinator) && (!id || id === "all")) ||
+    selected?.role === "church_admin" ||
+    selected?.role === "coordinator";
   let q = a.db
     .from("hco_cells")
     .select("id,area_id,name,address,meeting_day,meeting_start,meeting_end")

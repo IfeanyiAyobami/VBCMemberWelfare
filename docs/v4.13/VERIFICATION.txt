@@ -1,0 +1,11 @@
+VBC v4.13 local verification, 18 November 2026
+Browser: 65 PASS lines, exit 0
+Home Cell database: 110 checks passed
+Separate login database: 34 checks passed
+Separate login route: passed
+Existing PIN / CFC / mobile Friend / member / greetings: passed
+TypeScript: passed
+Production build: passed on retry; initial Next.js security advisory remains outstanding
+Protected source files and existing migrations byte-identical to v4.12
+No dependency changes except release version metadata
+No hosted database or deployment changes performed

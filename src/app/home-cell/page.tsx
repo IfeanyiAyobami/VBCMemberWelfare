@@ -11,9 +11,14 @@ export default async function Page({
 }) {
   const a = await actor(true).catch(() => null);
   if (!a) redirect("/home-cell/login");
-  if (a.user.app_metadata?.hco_password_change_required === true) redirect("/home-cell/activate?temporary=1");
+  if (a.user.app_metadata?.hco_password_change_required === true)
+    redirect("/home-cell/activate?temporary=1");
   const params = await searchParams;
   // v4.12: Cell Leaders and Area Leaders get the simple app; ?full=1 opens the full office.
-  if (params.full !== "1" && isLeaderOnly(a.assignments, a.churchAdmin)) return <LeaderApp />;
+  if (
+    a.user.app_metadata?.hco_cell_login_for ||
+    (params.full !== "1" && isLeaderOnly(a.assignments, a.churchAdmin))
+  )
+    return <LeaderApp />;
   return <HomeCellWorkspace section="overview" />;
 }

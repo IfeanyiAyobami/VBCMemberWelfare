@@ -1,5 +1,5 @@
 import { withRoute } from "@/lib/home-cell/route";
-import {publicLoginEmail} from "@/lib/home-cell/phone-usernames";
+import { publicLoginEmail } from "@/lib/home-cell/phone-usernames";
 import { NextRequest } from "next/server";
 import { authJSON, hasSameOrigin } from "@/lib/auth/http";
 import { workspaceScope } from "@/lib/home-cell/workspace";
@@ -151,34 +151,81 @@ async function handleGET(req: NextRequest) {
       .in("role", ["cell_leader", "area_leader", "coordinator"])
       .or(
         [
-          ...(a.cells.length ? [`cell_id.in.(${a.cells.map((c) => c.id).join(",")})`] : []),
+          "role.eq.coordinator",
+          ...(a.cells.length
+            ? [`cell_id.in.(${a.cells.map((c) => c.id).join(",")})`]
+            : []),
           ...(areaIds.length ? [`area_id.in.(${areaIds.join(",")})`] : []),
         ].join(",") || "user_id.is.null",
       )
       .limit(2000);
-    const roles: { user_id: string; role: string; area_id: string | null; cell_id: string | null }[] =
-      roleRows.error ? [] : roleRows.data || [];
-    const mine = (role: string, key: "area_id" | "cell_id", value: string | null) =>
-      a.assignments.some((x) => x.role === role && x[key] === value);
+    const linksResult = await a.db
+      .from("hco_cell_logins")
+      .select("owner_id,leader_user_id");
+    if (
+      linksResult.error &&
+      !["42P01", "PGRST205"].includes(linksResult.error.code)
+    )
+      throw Error("DATA_UNAVAILABLE");
+    const links = linksResult.data || [];
+    const identity = (id: string) =>
+      links.find((x) => x.leader_user_id === id)?.owner_id || id;
+    const roles: {
+      user_id: string;
+      role: string;
+      area_id: string | null;
+      cell_id: string | null;
+    }[] = roleRows.error
+      ? []
+      : [
+          ...new Map(
+            (roleRows.data || []).map((r) => {
+              const v = { ...r, user_id: identity(r.user_id) };
+              return [
+                [v.user_id, v.role, v.area_id, v.cell_id].join(":"),
+                v,
+              ] as const;
+            }),
+          ).values(),
+        ];
+    const mine = (
+      role: string,
+      key: "area_id" | "cell_id",
+      value: string | null,
+    ) => a.assignments.some((x) => x.role === role && x[key] === value);
     const leadsCell = (user: string, cell: string) =>
-      roles.some((r) => r.user_id === user && r.role === "cell_leader" && r.cell_id === cell);
-    const cellArea = (cell: string) => a.cells.find((c) => c.id === cell)?.area_id || null;
+      roles.some(
+        (r) =>
+          r.user_id === user && r.role === "cell_leader" && r.cell_id === cell,
+      );
+    const cellArea = (cell: string) =>
+      a.cells.find((c) => c.id === cell)?.area_id || null;
     const approvable: string[] = [],
       reviewable: string[] = [];
     for (const m of meetings.data || []) {
       if (m.status !== "submitted") continue;
       const area = cellArea(m.cell_id);
-      const own = mine("cell_leader", "cell_id", m.cell_id) || m.submitted_by === a.user.id;
+      const own =
+        mine("cell_leader", "cell_id", m.cell_id) ||
+        identity(m.submitted_by) === identity(a.user.id);
       if (own) continue;
-      const manage = a.churchAdmin || mine("coordinator", "area_id", area) || mine("area_leader", "area_id", area);
+      const manage =
+        a.churchAdmin ||
+        a.coordinator ||
+        mine("coordinator", "area_id", area) ||
+        mine("area_leader", "area_id", area);
       if (manage) reviewable.push(m.id);
       const independentAreaLeader = roles.some(
-        (r) => r.role === "area_leader" && r.area_id === area && !leadsCell(r.user_id, m.cell_id),
+        (r) =>
+          r.role === "area_leader" &&
+          r.area_id === area &&
+          !leadsCell(r.user_id, m.cell_id),
       );
       if (
         a.churchAdmin ||
         mine("area_leader", "area_id", area) ||
-        (mine("coordinator", "area_id", area) && !independentAreaLeader)
+        ((a.coordinator || mine("coordinator", "area_id", area)) &&
+          !independentAreaLeader)
       )
         approvable.push(m.id);
     }
@@ -190,21 +237,39 @@ async function handleGET(req: NextRequest) {
           const { data } = await a.db.auth.admin.getUserById(id);
           if (data?.user)
             identities[id] = {
-              name: String(data.user.user_metadata?.full_name || publicLoginEmail(data.user.email) || "Leader"),
-              phone: String(data.user.app_metadata?.hco_phone_username || (data.user.phone ? "+" + data.user.phone.replace(/\D/g, "") : "")),
+              name: String(
+                data.user.user_metadata?.full_name ||
+                  publicLoginEmail(data.user.email) ||
+                  "Leader",
+              ),
+              phone: String(
+                data.user.app_metadata?.hco_phone_username ||
+                  (data.user.phone
+                    ? "+" + data.user.phone.replace(/\D/g, "")
+                    : ""),
+              ),
             };
         } catch {
           /* names are optional; the screens fall back to the cell name */
         }
       }),
     );
-    const people_roles = roles.map((r) => ({ ...r, name: identities[r.user_id]?.name || "", phone: identities[r.user_id]?.phone || "" }));
+    const people_roles = roles.map((r) => ({
+      ...r,
+      name: identities[r.user_id]?.name || "",
+      phone: identities[r.user_id]?.phone || "",
+    }));
     return authJSON({
       userId: a.user.id,
+      leaderLoginOnly: !!a.user.app_metadata?.hco_cell_login_for,
       approvable,
       reviewable,
       roles: people_roles,
-      email: publicLoginEmail(a.user.email) || a.user.app_metadata?.hco_phone_username || a.user.phone || "Leadership workspace",
+      email:
+        publicLoginEmail(a.user.email) ||
+        a.user.app_metadata?.hco_phone_username ||
+        a.user.phone ||
+        "Leadership workspace",
       churchAdmin: a.churchAdmin,
       manager: a.manager,
       assignments: a.assignments,
@@ -298,7 +363,14 @@ async function handlePOST(req: NextRequest) {
       : null;
     if (body.cell_id && !cell && body.action !== "cell")
       return authJSON({ message: "Outside your workspace" }, 403);
-    if(body.action === "assign_member") return authJSON({message:"Use Members → Find existing member to preview the assignment or submit a transfer request."},409);
+    if (body.action === "assign_member")
+      return authJSON(
+        {
+          message:
+            "Use Members → Find existing member to preview the assignment or submit a transfer request.",
+        },
+        409,
+      );
     const { data, error } = await a.db.rpc("hco_workspace_write", {
       p_actor: a.user.id,
       p_action: body.action,

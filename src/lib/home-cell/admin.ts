@@ -20,6 +20,11 @@ export async function actor(allowPasswordChange = false) {
   } = await client.auth.getUser();
   if (!user) throw new Error("UNAUTHENTICATED");
   const db = adminDb();
+  // A linked PIN identity is a separate Auth user, never the administrator token.
+  if (user.app_metadata?.hco_cell_login_for) {
+    const linked = await db.rpc("hco_cell_login_sync", { p_user: user.id });
+    if (linked.error || linked.data !== true) throw Error("NO_ACCESS");
+  }
   const [staffResult, assignmentResult, accessResult] = await Promise.all([
     db
       .from("care_staff")
@@ -77,15 +82,18 @@ export async function actor(allowPasswordChange = false) {
     (staff?.is_active === true && staff.role === "administrator") ||
     roles.some((x) => x.role === "church_admin");
   if (!churchAdmin && !roles.length) throw new Error("FORBIDDEN");
-  const areas = roles
-    .filter((x) => x.role === "coordinator" && x.area_id)
-    .map((x) => x.area_id as string);
+  const coordinator = roles.some((x) => x.role === "coordinator");
+  const allAreas = coordinator
+    ? await db.from("hco_areas").select("id").eq("is_active", true)
+    : null;
+  if (allAreas?.error) throw Error("ACCESS_CHECK_FAILED");
+  const areas: string[] = allAreas?.data?.map((x) => x.id) || [];
   if (
     !allowPasswordChange &&
     user.app_metadata?.hco_password_change_required === true
   )
     throw Error("PASSWORD_CHANGE_REQUIRED");
-  return { user, db, churchAdmin, areas, assignments: roles };
+  return { user, db, churchAdmin, coordinator, areas, assignments: roles };
 }
 export async function canManage(targetArea: string | null, role: string) {
   const a = await actor();

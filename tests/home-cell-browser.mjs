@@ -1208,6 +1208,12 @@ try {
   }
   assert(await page.locator("#hcl-email").isVisible());
   assert(await page.locator("#hcl-password").isVisible());
+  await page.getByRole("button", { name: /Church Admin \/ Coordinator/ }).click();
+  assert.equal(await page.locator("#hcl-password").getAttribute("maxlength"), "1024");
+  await page.getByRole("button", { name: /Cell \/ Area Leader/ }).click();
+  assert.equal(await page.locator("#hcl-password").getAttribute("maxlength"), "4");
+  console.log("PASS Home Cell explicit PIN and staff-password login choices");
+
   for (const [path, endpoint, name] of [
     ["/home-cell/login", "/api/home-cell/login", "home-cell"],
     ["/cfc-login", "/api/cfc/login", "cfc"],

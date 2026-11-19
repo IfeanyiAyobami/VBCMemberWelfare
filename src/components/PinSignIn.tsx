@@ -73,6 +73,28 @@ export default function PinSignIn({
           </h1>
           <p>{title}</p>
         </header>
+        {homeCell && (
+          <div className="pin-workspaces" aria-label="Choose sign-in access">
+            <button
+              type="button"
+              aria-pressed={mode === "pin"}
+              disabled={busy}
+              onClick={() => switchMode("pin")}
+            >
+              <b>Cell / Area Leader</b>
+              <small>4-digit PIN</small>
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode !== "pin"}
+              disabled={busy}
+              onClick={() => switchMode("staff")}
+            >
+              <b>Church Admin / Coordinator</b>
+              <small>Password</small>
+            </button>
+          </div>
+        )}
         <form
           className="pin-form"
           aria-busy={busy}

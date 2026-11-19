@@ -1,9 +1,9 @@
 {
   "name": "vbc-member-care-frontend",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "private": true,
   "type": "module",
-  "description": "VBC Member Care v4.12 — Simple leader screens",
+  "description": "VBC Member Care v4.13 \u2014 Separate leadership logins and global coordinators",
   "engines": {
     "node": ">=22.14.0"
   },
@@ -38,7 +38,8 @@
     "test:mobile-friend": "node --experimental-strip-types tests/mobile-friend-ui.mjs",
     "test:friend-dashboard": "node --experimental-strip-types tests/mobile-friend-ui.mjs && node --experimental-strip-types tests/friend-registration-ui.mjs && node --experimental-strip-types tests/friend-shell-access.mjs && node --experimental-strip-types tests/friend-celebrations-route.mjs",
     "test:home-cell-pins": "node tests/home-cell-pin-database.mjs && node --experimental-strip-types tests/home-cell-pin-routes.mjs && node --experimental-strip-types tests/login-persistence.mjs && node --experimental-strip-types tests/home-cell-pin-generation.mjs",
-    "test:cfc": "node tests/cfc-database.mjs && node --experimental-strip-types tests/cfc-pin-routes.mjs && node tests/cfc-ui.mjs"
+    "test:cfc": "node tests/cfc-database.mjs && node --experimental-strip-types tests/cfc-pin-routes.mjs && node tests/cfc-ui.mjs",
+    "test:home-cell-separate-logins": "node tests/home-cell-separate-logins-database.mjs && node tests/home-cell-separate-logins-route.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

@@ -127,3 +127,31 @@ main.pin-login {
   top: 50%;
   transform: translateY(-50%);
 }
+
+.pin-workspaces {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pin-workspaces button {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 84px;
+  padding: 10px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--fg);
+  cursor: pointer;
+  font-size: 14px;
+}
+.pin-workspaces small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.pin-workspaces [aria-pressed="true"] {
+  border-color: var(--red);
+  box-shadow: inset 0 -3px var(--red);
+  background: var(--soft);
+}

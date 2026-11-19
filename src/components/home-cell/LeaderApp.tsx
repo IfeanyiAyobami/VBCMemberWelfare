@@ -216,7 +216,7 @@ export default function LeaderApp() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, myAreas]);
   const coordinators = (areaId?: string) =>
-    data ? holders(data, "coordinator", (r) => (areaId ? r.area_id === areaId : myAreas.concat(myCells.map((c) => c.area_id)).includes(r.area_id || ""))) : [];
+    data ? holders(data, "coordinator", (r) => !r.area_id || (areaId ? r.area_id === areaId : myAreas.concat(myCells.map((c) => c.area_id)).includes(r.area_id || ""))) : [];
   const leaderOf = (cellId: string) => (data ? holders(data, "cell_leader", (r) => r.cell_id === cellId)[0] : undefined);
   const areaName = (id: string) => data?.areas.find((a) => a.id === id)?.name || "Your area";
 
@@ -825,7 +825,7 @@ export default function LeaderApp() {
           <details className="lx-more"><summary>Fix a mistake I already sent?</summary><p className="lx-small">Ask your reviewer to send the report back. Then change it and send again.</p></details>
           {isArea && <details className="lx-more"><summary>Approve a cell&rsquo;s report?</summary><p className="lx-small">On <b>This week</b>, tap <b>Review</b>. Check the numbers, then tap <b>Approve</b> or <b>Send back</b>.</p></details>}
         </section>
-        <a className="lx-btn" href="/home-cell?full=1">Open the full Home Cell Office</a>
+        {!data?.leaderLoginOnly && <a className="lx-btn" href="/home-cell?full=1">Open the full Home Cell Office</a>}
         <button
           className="lx-btn"
           onClick={async () => {

@@ -26,7 +26,10 @@ export async function getStaffSession(
         return { status: "unavailable" };
       return { status: "unauthenticated" };
     }
-    if (user.app_metadata?.cfc_dashboard_only === true)
+    if (
+      user.app_metadata?.cfc_dashboard_only === true ||
+      user.app_metadata?.hco_cell_login_for
+    )
       return { status: "forbidden" };
     // Use the signed-in user's publishable-key client; Supabase RLS still applies.
     const { data, error } = await supabase

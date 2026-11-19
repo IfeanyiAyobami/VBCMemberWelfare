@@ -205,6 +205,10 @@ export default function LeadershipAccounts() {
   const assignments = selected
     ? items.filter((x) => x.user_id === selected.user_id)
     : [];
+  const hasCellRole = assignments.some((x) => x.role === "cell_leader");
+  const hasStaffRole = assignments.some((x) =>
+    ["church_admin", "coordinator"].includes(x.role),
+  );
   function scope(x: Pick<Assignment, "area_id" | "cell_id">) {
     return x.cell_id
       ? cells.find((c) => c.id === x.cell_id)?.name || "Home cell"
@@ -338,7 +342,10 @@ export default function LeadershipAccounts() {
       return;
     }
     if (["create", "add_role", "replace_role"].includes(mode || "")) {
-      if (form.role !== "church_admin" && !form.area_id) {
+      if (
+        !["church_admin", "coordinator"].includes(form.role) &&
+        !form.area_id
+      ) {
         notify("Choose the area for this leadership role.", "Select an area");
         return;
       }
@@ -407,7 +414,7 @@ export default function LeadershipAccounts() {
   }
   function credentialText() {
     return credentials
-      ? `Vine Branch Church — Home Cell Office\nSign in: ${location.origin}/home-cell/login\nLogin: ${credentials.login}\n${credentials.pin ? "Home Cell PIN" : "Temporary password"}: ${credentials.password}\n${credentials.pin ? "Only your coordinator can replace this PIN." : "Choose a new personal password at first sign-in."}\nShare privately and delete this file after handover.\n`
+      ? `Vine Branch Church — Home Cell Office\nSign in: ${location.origin}/home-cell/login\nLogin: ${credentials.login}\n${credentials.pin ? "Home Cell PIN" : "Temporary password"}: ${credentials.password}\n${credentials.pin ? "Ask your coordinator or Church Admin to replace this PIN." : "Choose a new personal password at first sign-in."}\nShare privately and delete this file after handover.\n`
       : "";
   }
   function download() {
@@ -437,16 +444,15 @@ export default function LeadershipAccounts() {
                 : mode === "replace_role"
                   ? "Reassign leadership role"
                   : "Add leadership role";
-  const reviewScope =
-    form.role === "church_admin"
-      ? "Church-wide"
-      : form.role === "cell_leader"
-        ? form.cell_id
-          ? scope(form)
-          : "Choose a home cell"
-        : form.area_id
-          ? scope(form)
-          : "Choose an area";
+  const reviewScope = ["church_admin", "coordinator"].includes(form.role)
+    ? "Church-wide"
+    : form.role === "cell_leader"
+      ? form.cell_id
+        ? scope(form)
+        : "Choose a home cell"
+      : form.area_id
+        ? scope(form)
+        : "Choose an area";
   const roleFields = (
     <>
       <label>
@@ -467,7 +473,7 @@ export default function LeadershipAccounts() {
           )}
         </select>
       </label>
-      {form.role !== "church_admin" && (
+      {!["church_admin", "coordinator"].includes(form.role) && (
         <label>
           Area
           <select
@@ -838,20 +844,63 @@ export default function LeadershipAccounts() {
             </>
           ) : (
             <div className="la-security-options">
+              {hasCellRole && hasStaffRole && (
+                <section>
+                  <div>
+                    <h3>Separate Cell Leader login</h3>
+                    <p>
+                      Use the same phone or email with a four-digit PIN for cell
+                      work only. The administrator or coordinator password stays
+                      unchanged.
+                    </p>
+                  </div>
+                  <button
+                    className="la-primary"
+                    disabled={
+                      busy ||
+                      selected.suspended ||
+                      selected.user_id === actorId ||
+                      !admin
+                    }
+                    onClick={() => {
+                      if (
+                        confirm(
+                          "Generate a separate Cell Leader PIN? Existing leader PINs will be replaced. The staff password stays unchanged.",
+                        )
+                      )
+                        void request("/api/home-cell/leaders/cell-login", {
+                          user_id: selected.user_id,
+                        });
+                    }}
+                  >
+                    Generate / reset Cell Leader PIN
+                  </button>
+                  {!admin && (
+                    <p>Ask a Church Admin to set up this dual-role login.</p>
+                  )}
+                </section>
+              )}
+
               <section>
                 <div>
                   <h3>
-                    {(selected.role === "cell_leader" || selected.role === "area_leader")
+                    {!hasStaffRole &&
+                    (selected.role === "cell_leader" ||
+                      selected.role === "area_leader")
                       ? "Four-digit Home Cell PIN"
                       : "Temporary password"}
                   </h3>
                   <p>
-                    {(selected.role === "cell_leader" || selected.role === "area_leader")
+                    {!hasStaffRole &&
+                    (selected.role === "cell_leader" ||
+                      selected.role === "area_leader")
                       ? "Generate a four-digit PIN for this Cell or Area Leader. A replacement invalidates the previous PIN; Friend credentials stay unchanged. Only coordinators and church administrators can generate it."
                       : "Generate a replacement password if the previous one was lost. A personal password is required at sign-in."}
                   </p>
                 </div>
-                {(selected.role === "cell_leader" || selected.role === "area_leader") ? (
+                {!hasStaffRole &&
+                (selected.role === "cell_leader" ||
+                  selected.role === "area_leader") ? (
                   <button
                     className="la-primary"
                     disabled={
@@ -871,7 +920,9 @@ export default function LeadershipAccounts() {
                     Generate / reset 4-digit PIN
                   </button>
                 ) : null}
-                {selected.role === "cell_leader" ? null : admin && selected.user_id !== actorId ? (
+                {!hasStaffRole &&
+                selected.role === "cell_leader" ? null : admin &&
+                  selected.user_id !== actorId ? (
                   <button
                     className="la-primary"
                     disabled={selected.suspended || selected.needsPhoneRepair}
@@ -1244,7 +1295,7 @@ export default function LeadershipAccounts() {
               <b>Ready for a secure handover</b>
               <p>
                 {credentials.pin
-                  ? "Sign in with this PIN. Only your coordinator can replace it."
+                  ? "Use Cell / Area Leader PIN sign-in. For a dual-role account, ask a Church Admin to replace this PIN."
                   : "The leader must choose a personal password at first sign-in."}
               </p>
             </div>

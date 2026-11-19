@@ -12,6 +12,8 @@ export default async function Page({
   if (!sections.includes(section as Section)) notFound();
   const a = await actor(true).catch(() => null);
   if (!a) redirect("/home-cell/login");
-  if (a.user.app_metadata?.hco_password_change_required === true) redirect("/home-cell/activate?temporary=1");
+  if (a.user.app_metadata?.hco_cell_login_for) redirect("/home-cell");
+  if (a.user.app_metadata?.hco_password_change_required === true)
+    redirect("/home-cell/activate?temporary=1");
   return <HomeCellWorkspace section={section as Section} />;
 }

@@ -38,7 +38,14 @@ async function handleGET() {
             (x.area_id && a.areas.includes(x.area_id)) ||
             (x.cell_id && scopedCells.includes(x.cell_id)),
         );
-    const userIds = [...new Set((allowed || []).map((x) => x.user_id))];
+    const linked = await a.db
+      .from("hco_cell_logins")
+      .select("owner_id,leader_user_id");
+    if (linked.error && !["42P01", "PGRST205"].includes(linked.error.code))
+      throw linked.error;
+    const hidden = new Set((linked.data || []).map((x) => x.leader_user_id));
+    const shown = (allowed || []).filter((x) => !hidden.has(x.user_id));
+    const userIds = [...new Set(shown.map((x) => x.user_id))];
     const identities: Record<
       string,
       {
@@ -89,7 +96,7 @@ async function handleGET() {
       .in("user_id", userIds);
     if (access.error) throw access.error;
     return reply({
-      leaders: (allowed || []).map((x) => ({
+      leaders: shown.map((x) => ({
         ...x,
         ...identities[x.user_id],
         email: publicLoginEmail(identities[x.user_id]?.email),
@@ -121,8 +128,12 @@ async function handlePOST(req: NextRequest) {
     const rawPhone = String(body.phone || "").trim();
     const phone = rawPhone ? normalizeLoginPhone(rawPhone) : null;
     const role = String(body.role || "");
-    const areaId = body.area_id || null;
-    const cellId = body.cell_id || null;
+    const areaId = ["church_admin", "coordinator"].includes(role)
+      ? null
+      : body.area_id || null;
+    const cellId = ["church_admin", "coordinator"].includes(role)
+      ? null
+      : body.cell_id || null;
     if (email.endsWith("@home-cell.invalid"))
       return reply(
         { message: "Enter a real email address or a phone number." },
@@ -143,7 +154,6 @@ async function handlePOST(req: NextRequest) {
       return reply({ message: "Forbidden" }, { status: 403 });
     if (
       (role === "church_admin" && (areaId || cellId)) ||
-      (role === "coordinator" && !areaId) ||
       (role === "area_leader" && !areaId) ||
       (role === "cell_leader" && !cellId)
     )
@@ -164,7 +174,7 @@ async function handlePOST(req: NextRequest) {
     if (role === "area_leader" && !a.churchAdmin && !a.areas.includes(areaId))
       return reply({ message: "Outside your area" }, { status: 403 });
     if (!a.churchAdmin && !a.areas.length) throw new Error("FORBIDDEN");
-    if (role !== "church_admin" && role !== "cell_leader") {
+    if (role === "area_leader") {
       const { data: area, error: areaError } = await a.db
         .from("hco_areas")
         .select("id")
@@ -268,7 +278,7 @@ async function handlePOST(req: NextRequest) {
         user_id: target,
         phone,
         role,
-        area_id: role === "church_admin" ? null : areaId,
+        area_id: ["church_admin", "coordinator"].includes(role) ? null : areaId,
         cell_id: cellId,
         reason:
           typeof body.reason === "string" && body.reason.trim().length >= 5
